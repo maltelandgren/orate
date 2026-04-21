@@ -28,6 +28,12 @@ models/
 arc-data/
 scratch/
 
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+secrets/
+
 # Bench / logs
 *.log
 *.prof
