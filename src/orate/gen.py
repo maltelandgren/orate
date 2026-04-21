@@ -43,6 +43,18 @@ class Gen:
             return self.reject_message(value)
         return self.reject_message
 
+    def _notify_reject(self, engine: Any, value: Any) -> None:
+        """Inject a natural-language reject hint into the engine's session.
+
+        No-op unless (a) the Gen has a reject_message and (b) the engine
+        implements inject_context. This is Phase-B: the grammar still
+        tightens, but the model *also* sees why the last sample failed,
+        so its next argmax moves to a different region of the accept set.
+        """
+        msg = self._format_reject(value)
+        if msg and hasattr(engine, "inject_context"):
+            engine.inject_context(f"(note: {msg})")
+
 
 @dataclass
 class Choice(Gen):
@@ -62,6 +74,7 @@ class Choice(Gen):
             pick = engine.sample_choice(remaining)
             if self.where is None or self.where(pick):
                 return pick
+            self._notify_reject(engine, pick)
             remaining = [o for o in remaining if o != pick]
             attempts += 1
         raise GrammarExhausted(
@@ -92,6 +105,7 @@ class Int(Gen):
             pick = engine.sample_int(self.min_val, self.max_val, excluded=excluded)
             if self.where is None or self.where(pick):
                 return pick
+            self._notify_reject(engine, pick)
             excluded.add(pick)
             attempts += 1
         raise GrammarExhausted(
@@ -129,11 +143,10 @@ class String(Gen):
             )
             if self.where is None or self.where(pick):
                 return pick
+            self._notify_reject(engine, pick)
             seen.add(pick)
             attempts += 1
-        raise GrammarExhausted(
-            f"gen.string: max_retries={self.max_retries} exceeded"
-        )
+        raise GrammarExhausted(f"gen.string: max_retries={self.max_retries} exceeded")
 
 
 @dataclass
@@ -146,9 +159,11 @@ class Bool(Gen):
 
     def dispatch(self, engine: Engine) -> bool:
         candidates = [True, False]
-        for pick in [engine.sample_bool() for _ in range(self.max_retries)]:
+        for _ in range(self.max_retries):
+            pick = engine.sample_bool()
             if self.where is None or self.where(pick):
                 return pick
+            self._notify_reject(engine, pick)
             candidates = [c for c in candidates if c != pick]
             if not candidates:
                 break
@@ -179,6 +194,7 @@ class Struct(Gen):
                 result = {name: child.dispatch(engine) for name, child in self.fields.items()}
             if self.where is None or self.where(result):
                 return result
+            self._notify_reject(engine, result)
             attempts += 1
         raise GrammarExhausted("gen.struct: max_retries exceeded")
 

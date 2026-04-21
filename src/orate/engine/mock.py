@@ -52,9 +52,7 @@ class MockEngine:
         excluded = excluded or set()
         for _ in range(32):
             length = self._rng.randint(1, max(1, min(max_len, 16)))
-            candidate = "".join(
-                self._rng.choice(_string.ascii_lowercase) for _ in range(length)
-            )
+            candidate = "".join(self._rng.choice(_string.ascii_lowercase) for _ in range(length))
             if candidate not in excluded:
                 return candidate
         raise RuntimeError("MockEngine.sample_string: could not escape excluded set")
