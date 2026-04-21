@@ -14,7 +14,6 @@ sampling is out of scope for this pass; see `sampler` field.
 from __future__ import annotations
 
 import os
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,9 +46,7 @@ def _int_grammar(min_val: int, max_val: int, excluded: set[int]) -> str:
     """
     allowed = [i for i in range(min_val, max_val + 1) if i not in excluded]
     if not allowed:
-        raise ValueError(
-            f"sample_int: all values in [{min_val},{max_val}] are excluded"
-        )
+        raise ValueError(f"sample_int: all values in [{min_val},{max_val}] are excluded")
     return _alternation_grammar([str(i) for i in allowed])
 
 
@@ -75,11 +72,9 @@ def _string_grammar(max_len: int, pattern: str | None) -> str:
         # Treat `pattern` as the per-char class. If it doesn't look
         # like a bracketed class, wrap it.
         p = pattern.strip()
-        if p.startswith("[") and p.endswith("]"):
-            char_class = p
-        else:
-            # Fall back: treat as a single-char pattern literal.
-            char_class = f"[{p}]"
+        # If it looks like a bracketed class use it as-is; otherwise
+        # wrap it. Full regex is explicitly out of scope.
+        char_class = p if p.startswith("[") and p.endswith("]") else f"[{p}]"
     # root ::= char char? char? ... (max_len copies, each optional after first)
     # A simpler form: explicit length range via repetition. GBNF doesn't
     # have bounded repetition {m,n} directly, so we unroll.
@@ -217,9 +212,7 @@ class XGrammarEngine:
         grammar = _alternation_grammar(opts)
         result = self._sample_with_grammar(grammar)
         if result not in opts:
-            raise RuntimeError(
-                f"sample_choice: grammar produced {result!r}, not in {opts!r}"
-            )
+            raise RuntimeError(f"sample_choice: grammar produced {result!r}, not in {opts!r}")
         return result
 
     def sample_int(
@@ -237,13 +230,9 @@ class XGrammarEngine:
         try:
             value = int(text)
         except ValueError as e:
-            raise RuntimeError(
-                f"sample_int: grammar produced non-integer {text!r}"
-            ) from e
+            raise RuntimeError(f"sample_int: grammar produced non-integer {text!r}") from e
         if value < min_val or value > max_val or value in excluded:
-            raise RuntimeError(
-                f"sample_int: value {value} violated constraints"
-            )
+            raise RuntimeError(f"sample_int: value {value} violated constraints")
         return value
 
     def sample_string(
@@ -259,14 +248,9 @@ class XGrammarEngine:
         # free strings; we retry with a fresh sample if we land on an
         # excluded value. Because sampling is argmax, a pure retry
         # would loop forever — we perturb via inject_context.
+        text = ""
         for attempt in range(4):
             text = self._sample_with_grammar(grammar)
-            if pattern is not None and not re.fullmatch(pattern, text):
-                # Engine should never produce out-of-pattern strings
-                # (grammar enforces char class), but guard anyway.
-                raise RuntimeError(
-                    f"sample_string: {text!r} does not match pattern {pattern!r}"
-                )
             if text not in excluded:
                 return text
             # Nudge the argmax to change on the next pass.
