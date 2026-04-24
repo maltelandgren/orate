@@ -108,8 +108,8 @@ class MetaProgramInvalid(ValueError):
 
 
 _ALLOWED_METHODS = {"choice", "integer", "string", "boolean"}
-_IDENT_MAX_LEN = 20
-_STR_LIT_MAX_LEN = 20
+_IDENT_MAX_LEN = 40
+_STR_LIT_MAX_LEN = 40
 _INT_LIT_MAX_DIGITS = 6
 _ALLOWED_STR_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -")
 
@@ -515,6 +515,12 @@ def compile_program_source(source: str) -> Callable[..., ProgramInvocation]:
     compiled = sandbox_locals.get(fn_name) or sandbox_globals.get(fn_name)
     if compiled is None or not callable(compiled):
         raise MetaProgramInvalid(f"compiled module does not expose callable {fn_name!r}")
+    # Stash the source so body_grammar + source-in-prompt introspection
+    # work on exec'd callables (inspect.getsource fails for those).
+    import contextlib  # noqa: PLC0415
+
+    with contextlib.suppress(TypeError, AttributeError):
+        compiled.__orate_source__ = source  # type: ignore[attr-defined]
     return compiled
 
 

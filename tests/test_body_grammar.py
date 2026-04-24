@@ -120,9 +120,7 @@ def test_string_max_len_emits_bounded_char_class():
 
     body = derive_body_grammar(name)
     # Helper rule carries the char class; wrapped in quoted quote-marks.
-    helper_line = [
-        line for line in body.splitlines() if line.startswith("name_str_")
-    ]
+    helper_line = [line for line in body.splitlines() if line.startswith("name_str_")]
     assert helper_line, f"expected a name_str_* helper rule in: {body}"
     rhs = helper_line[0]
     # Three total character positions, one required + two optional.

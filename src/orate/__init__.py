@@ -12,18 +12,30 @@ from orate.meta import (
 )
 from orate.program import ProgramInvocation, ProgramRejected, program, reject_program
 from orate.prompt import build_prompt
+from orate.session import (
+    FreeText,
+    NewProgramRegistered,
+    ProgramInvoked,
+    Session,
+    TurnEnded,
+)
 from orate.verify import Accept, Reject, VerifierCall, verifier
 
 __all__ = [
     "PROGRAM_SOURCE_GRAMMAR",
     "Accept",
     "BodyGrammarError",
+    "FreeText",
     "GrammarExhausted",
     "MetaProgramInvalid",
     "MetaResult",
+    "NewProgramRegistered",
     "ProgramInvocation",
+    "ProgramInvoked",
     "ProgramRejected",
     "Reject",
+    "Session",
+    "TurnEnded",
     "VerifierCall",
     "build_prompt",
     "compile_program_source",

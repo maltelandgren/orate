@@ -115,10 +115,20 @@ def _parse_program_ast(program_fn: Callable) -> ast.FunctionDef:
     prefer that; otherwise we fall back to ``program_fn`` itself.
     """
     target: Callable = getattr(program_fn, "__wrapped__", program_fn)
-    try:
-        src = inspect.getsource(target)
-    except (OSError, TypeError) as e:
-        raise BodyGrammarError(f"could not get source for {program_fn!r}: {e}") from e
+
+    # Dynamically compiled programs (from compile_program_source) carry
+    # their source on the decorated function as `__orate_source__`. Prefer
+    # that since inspect.getsource() fails on exec'd callables.
+    src = getattr(program_fn, "__orate_source__", None) or getattr(target, "__orate_source__", None)
+    if src is None:
+        try:
+            src = inspect.getsource(target)
+        except (OSError, TypeError) as e:
+            raise BodyGrammarError(
+                f"could not get source for {program_fn!r}: {e} "
+                "(for runtime-compiled programs, stash the source on "
+                "`__orate_source__` before passing in)"
+            ) from e
     src = textwrap.dedent(src)
     try:
         module = ast.parse(src)
