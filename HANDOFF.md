@@ -55,10 +55,10 @@ Commits (reverse chronological, full SHAs via `git log --oneline`):
 
 ## Design notes
 
-- [`docs/design/flavor-b-programs-as-gens.md`](docs/design/flavor-b-programs-as-gens.md)
-  — composition design (programs as first-class Gen specs). Deferred
-  intentionally; four design questions spelled out, implementation sketch
-  included. Reopen post-hackathon or when a demo needs it.
+- `[docs/design/flavor-b-programs-as-gens.md](docs/design/flavor-b-programs-as-gens.md)`
+— composition design (programs as first-class Gen specs). Deferred
+intentionally; four design questions spelled out, implementation sketch
+included. Reopen post-hackathon or when a demo needs it.
 
 ## Suggested next moves, ranked
 
