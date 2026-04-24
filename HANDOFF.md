@@ -53,6 +53,13 @@ Commits (reverse chronological, full SHAs via `git log --oneline`):
 4. `.venv/bin/python examples/smoke_local.py` — see the real local model solve a prime-with-digit-sum-10 constraint in one shot.
 5. Read `examples/act_04_arc_sketch.py` — the uppercut architecture. Run it; the synthetic flip task solves in 2 attempts under MockEngine.
 
+## Design notes
+
+- [`docs/design/flavor-b-programs-as-gens.md`](docs/design/flavor-b-programs-as-gens.md)
+  — composition design (programs as first-class Gen specs). Deferred
+  intentionally; four design questions spelled out, implementation sketch
+  included. Reopen post-hackathon or when a demo needs it.
+
 ## Suggested next moves, ranked
 
 1. **Real-model ARC run.** Wire `examples/act_04_arc_sketch.py` to use `XGrammarEngine` with Qwen2.5-7B-Instruct (the 7B GGUF is in `/Users/maltelandgren/models/`). Pick 3-5 easy ARC tasks (single-op transforms: flips, rotations, recolors). See how many solve with a sensible retry budget. This is the demo.
