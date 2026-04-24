@@ -167,6 +167,10 @@ def _check_straight_line_assign(fn_name: str, stmt: ast.stmt, index: int) -> ast
     if len(stmt.targets) != 1 or not isinstance(stmt.targets[0], ast.Name):
         raise BodyGrammarError(f"{fn_name}: statement #{index} must assign to a single bare name")
     value = stmt.value
+    if isinstance(value, ast.YieldFrom):
+        raise BodyGrammarError(
+            f"{fn_name}: `yield from` is not supported in a body-grammar-derivable program"
+        )
     if not isinstance(value, ast.Yield):
         raise BodyGrammarError(
             f"{fn_name}: statement #{index} RHS must be a `yield` expression; "
