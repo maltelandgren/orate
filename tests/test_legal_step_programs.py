@@ -48,7 +48,7 @@ def _make_session(name: str, fn) -> Session:
 
 def test_algebra_isolate_var_accepted():
     s = _make_session("algebra_step", algebra_step)
-    events = s._handle_call('@algebra_step("x + y = 5", "isolate_var", "x = 5 - y")')
+    events = s._handle_call('@algebra_step("x + y = 5", isolate_var, "x = 5 - y")')
     invoked = events[0]
     assert "rejected" not in invoked.result, invoked.result
 
@@ -56,7 +56,7 @@ def test_algebra_isolate_var_accepted():
 def test_algebra_simplify_accepted():
     s = _make_session("algebra_step", algebra_step)
     events = s._handle_call(
-        '@algebra_step("2(5 - y) + 3y = 12", "simplify", "10 + y = 12")'
+        '@algebra_step("2(5 - y) + 3y = 12", simplify, "10 + y = 12")'
     )
     invoked = events[0]
     assert "rejected" not in invoked.result, invoked.result
@@ -64,7 +64,7 @@ def test_algebra_simplify_accepted():
 
 def test_algebra_evaluate_accepted():
     s = _make_session("algebra_step", algebra_step)
-    events = s._handle_call('@algebra_step("x = 5 - 2", "evaluate", "x = 3")')
+    events = s._handle_call('@algebra_step("x = 5 - 2", evaluate, "x = 3")')
     invoked = events[0]
     assert "rejected" not in invoked.result, invoked.result
 
@@ -73,7 +73,7 @@ def test_algebra_arithmetic_error_rejected():
     """The famous LLM slip: 10 - 2y + 3y → '10 - y' instead of '10 + y'."""
     s = _make_session("algebra_step", algebra_step)
     events = s._handle_call(
-        '@algebra_step("2(5 - y) + 3y = 12", "simplify", "10 - y = 12")'
+        '@algebra_step("2(5 - y) + 3y = 12", simplify, "10 - y = 12")'
     )
     invoked = events[0]
     assert invoked.result.get("rejected") is True
@@ -83,7 +83,7 @@ def test_algebra_arithmetic_error_rejected():
 def test_algebra_evaluate_rejects_non_numeric():
     s = _make_session("algebra_step", algebra_step)
     events = s._handle_call(
-        '@algebra_step("x + y = 5", "evaluate", "y = 5 - x")'
+        '@algebra_step("x + y = 5", evaluate, "y = 5 - x")'
     )
     invoked = events[0]
     # rule says 'evaluate' but rhs isn't a pure number → rejected
@@ -93,7 +93,7 @@ def test_algebra_evaluate_rejects_non_numeric():
 def test_algebra_isolate_var_rejects_non_symbol_lhs():
     s = _make_session("algebra_step", algebra_step)
     events = s._handle_call(
-        '@algebra_step("x + y = 5", "isolate_var", "x + y = 5")'
+        '@algebra_step("x + y = 5", isolate_var, "x + y = 5")'
     )
     invoked = events[0]
     assert invoked.result.get("rejected") is True
@@ -105,7 +105,7 @@ def test_algebra_isolate_var_rejects_non_symbol_lhs():
 def test_logic_modus_ponens_accepted():
     s = _make_session("inference_step", inference_step)
     events = s._handle_call(
-        '@inference_step("P -> Q; P", "modus_ponens", "Q")'
+        '@inference_step("P -> Q; P", modus_ponens, "Q")'
     )
     invoked = events[0]
     assert "rejected" not in invoked.result, invoked.result
@@ -114,7 +114,7 @@ def test_logic_modus_ponens_accepted():
 def test_logic_hypothetical_syllogism_accepted():
     s = _make_session("inference_step", inference_step)
     events = s._handle_call(
-        '@inference_step("P -> Q; Q -> R", "hypothetical_syllogism", "P -> R")'
+        '@inference_step("P -> Q; Q -> R", hypothetical_syllogism, "P -> R")'
     )
     invoked = events[0]
     assert "rejected" not in invoked.result, invoked.result
@@ -123,7 +123,7 @@ def test_logic_hypothetical_syllogism_accepted():
 def test_logic_modus_ponens_wrong_conclusion_rejected():
     s = _make_session("inference_step", inference_step)
     events = s._handle_call(
-        '@inference_step("P -> Q; P", "modus_ponens", "R")'
+        '@inference_step("P -> Q; P", modus_ponens, "R")'
     )
     invoked = events[0]
     assert invoked.result.get("rejected") is True
@@ -132,7 +132,7 @@ def test_logic_modus_ponens_wrong_conclusion_rejected():
 def test_logic_unrelated_premises_rejected():
     s = _make_session("inference_step", inference_step)
     events = s._handle_call(
-        '@inference_step("P -> Q; R -> S", "hypothetical_syllogism", "P -> S")'
+        '@inference_step("P -> Q; R -> S", hypothetical_syllogism, "P -> S")'
     )
     invoked = events[0]
     assert invoked.result.get("rejected") is True
@@ -150,10 +150,10 @@ def test_algebra_chain_solves_system():
     """
     s = _make_session("algebra_step", algebra_step)
     chain = [
-        '@algebra_step("x + y = 5", "isolate_var", "x = 5 - y")',
-        '@algebra_step("2(5 - y) + 3y = 12", "simplify", "10 + y = 12")',
-        '@algebra_step("10 + y = 12", "isolate_var", "y = 2")',
-        '@algebra_step("x = 5 - 2", "evaluate", "x = 3")',
+        '@algebra_step("x + y = 5", isolate_var, "x = 5 - y")',
+        '@algebra_step("2(5 - y) + 3y = 12", simplify, "10 + y = 12")',
+        '@algebra_step("10 + y = 12", isolate_var, "y = 2")',
+        '@algebra_step("x = 5 - 2", evaluate, "x = 3")',
     ]
     for call in chain:
         events = s._handle_call(call)

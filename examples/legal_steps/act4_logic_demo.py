@@ -106,6 +106,7 @@ def main() -> None:
         system=SYSTEM,
         max_turn_tokens=4096,
         max_calls_per_turn=12,
+        allow_free_text=False,  # tool-only — every sample is an @-call
     )
 
     print()

@@ -101,7 +101,7 @@ def test_mode_scoped_program_visible_in_active_mode():
 def test_mode_transition_fires_after_invocation():
     s = Session(engine=_StubEngine(), programs={"enter_combat": enter_combat})
     assert s.active_mode == DEFAULT_MODE
-    s._handle_call('@enter_combat("alpha")')
+    s._handle_call("@enter_combat(alpha)")
     assert s.active_mode == "combat"
 
 
@@ -111,13 +111,13 @@ def test_round_trip_default_combat_default():
     s.register("attack", attack, mode="combat")
 
     # Default → combat
-    s._handle_call('@enter_combat("alpha")')
+    s._handle_call("@enter_combat(alpha)")
     assert s.active_mode == "combat"
     assert '"@attack(' in s._outer_grammar
     assert '"@exit_combat(' in s._outer_grammar
 
     # Combat → default
-    s._handle_call('@exit_combat("killed")')
+    s._handle_call("@exit_combat(killed)")
     assert s.active_mode == DEFAULT_MODE
     assert '"@attack(' not in s._outer_grammar
 
@@ -199,9 +199,16 @@ def test_scan_typed_args_string_with_comma_content():
     ) == ("hello, world",)
 
 
-def test_scan_typed_args_choice():
+def test_scan_typed_args_choice_bare():
+    """Body grammar emits choices bare, not JSON-quoted."""
     types = [ArgType(kind="choice", options=("red", "blue"))]
-    assert _scan_typed_args('"red"', types) == ("red",)
+    assert _scan_typed_args("red", types) == ("red",)
+
+
+def test_scan_typed_args_choice_picks_longest_match():
+    """When one option is a prefix of another, prefer the longer match."""
+    types = [ArgType(kind="choice", options=("foo", "foobar"))]
+    assert _scan_typed_args("foobar", types) == ("foobar",)
 
 
 def test_scan_typed_args_mixed():
@@ -273,12 +280,11 @@ def test_predicate_rejects_invalid_chain():
     assert "where=" in invoked.result["error"]
 
 
-def test_predicate_rejects_out_of_choice():
+def test_scanner_rejects_unknown_choice():
+    """Bare-word scanner returns empty events for unknown choices."""
     s = Session(engine=_StubEngine(), programs={"greet": greet})
-    # The body grammar would never produce "weird" — but we test
-    # _verify_program_emission's defense. We emit through _handle_call
-    # directly with a value the grammar would reject.
-    events = s._handle_call('@greet("weird")')
-    invoked = events[0]
-    assert invoked.result.get("rejected") is True
-    assert "is not one of" in invoked.result["error"]
+    events = s._handle_call("@greet(weird)")
+    # Scanner couldn't match → arg parse failed → empty events list.
+    assert events == []
+    # Engine got a session note about it.
+    assert any("arg parse failed" in t for t in s.engine.appended)

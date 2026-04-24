@@ -110,14 +110,25 @@ class _RegistryEntry:
 _MAX_TEXT_CHUNK = 240
 
 
-def _build_outer_grammar(registry: dict[str, _RegistryEntry]) -> str:
+def _build_outer_grammar(
+    registry: dict[str, _RegistryEntry],
+    *,
+    allow_free_text: bool = True,
+) -> str:
     """One-unit outer grammar admitting text OR one @call.
 
     Every registered program contributes:
       1. A top-level alternative in `at_call` that invokes its body rule.
       2. Its body rule + helpers (namespaced under the program name).
 
-    The grammar is regenerated each time the registry changes.
+    When ``allow_free_text=False``, the outer grammar is just ``at_call``
+    — the model can ONLY emit tool calls. Useful for tool-strict sessions
+    (e.g. legal-step demos) where any prose at all derails the trace.
+    The Session driver still inserts a ``"\\n"`` separator between
+    successive calls so they stay readable in the KV.
+
+    The grammar is regenerated each time the registry or active mode
+    changes.
     """
     at_call_alts: list[str] = []
     all_body_rules: list[str] = []
@@ -137,6 +148,13 @@ def _build_outer_grammar(registry: dict[str, _RegistryEntry]) -> str:
 
     if not at_call_alts:
         raise RuntimeError("Session has empty registry — at least one program required")
+
+    if not allow_free_text:
+        header = [
+            "root ::= at_call",
+            f"at_call ::= {' | '.join(at_call_alts)}",
+        ]
+        return "\n".join(header + all_body_rules) + "\n"
 
     # text_chunk: 1..MAX printable non-'@' chars. Bounded so the grammar
     # yields control back per-unit. The Session driver loops to produce
@@ -284,7 +302,22 @@ def _scan_typed_args(text: str, arg_types: list[ArgType]) -> tuple:
                 pos += 5
             else:
                 raise ValueError(f"expected true/false for arg #{idx} at pos {pos}")
-        elif t.kind in ("choice", "string"):
+        elif t.kind == "choice":
+            # Choices are emitted bare per the body grammar
+            # ((alt1 | alt2 | ...)). Match the longest option that
+            # starts at pos.
+            matched: str | None = None
+            for opt in sorted(t.options, key=len, reverse=True):
+                if text.startswith(opt, pos):
+                    matched = opt
+                    break
+            if matched is None:
+                raise ValueError(
+                    f"arg #{idx}: expected one of {list(t.options)} at pos {pos}"
+                )
+            values.append(matched)
+            pos += len(matched)
+        elif t.kind == "string":
             if pos >= n or text[pos] != '"':
                 raise ValueError(
                     f'expected \'"\' opening quote for arg #{idx} at pos {pos}'
@@ -342,6 +375,8 @@ class Session:
         max_turn_tokens: int = 1024,
         max_consecutive_synth_failures: int = 3,
         max_calls_per_turn: int = 4,
+        allow_free_text: bool = True,
+        call_separator: str = "\n",
     ) -> None:
         if not (hasattr(engine, "begin_session") and hasattr(engine, "sample_under")):
             raise TypeError(
@@ -353,6 +388,8 @@ class Session:
         self.max_consecutive_synth_failures = max_consecutive_synth_failures
         self._consecutive_synth_failures = 0
         self.max_calls_per_turn = max_calls_per_turn
+        self.allow_free_text = allow_free_text
+        self.call_separator = call_separator
         self.registry: dict[str, _RegistryEntry] = {}
         self._active_mode: str = DEFAULT_MODE
 
@@ -443,7 +480,10 @@ class Session:
         }
 
     def _rebuild_outer_grammar(self) -> None:
-        self._outer_grammar = _build_outer_grammar(self._visible_registry())
+        self._outer_grammar = _build_outer_grammar(
+            self._visible_registry(),
+            allow_free_text=self.allow_free_text,
+        )
 
     def _register_make_new_program(self) -> None:
         """Bootstrap: make_new_program is grammar-inlined but dispatched

@@ -48,34 +48,38 @@ def _pick_model() -> str:
 
 
 SYSTEM = """\
-You are a careful step-by-step problem solver. You have ONE tool:
+You output ONLY @algebra_step calls. No markdown, no prose, no code
+fences, no commentary. Each call is on its own line, no blank lines.
 
-  @algebra_step("before", "rule", "after")
+Exact syntax (every character matters):
 
-It applies one legal algebraic transformation. The runtime will
-mathematically verify that "after" is equivalent to "before" under
-"rule"; if not, the call is rejected and you must retry. Only emit
-@algebra_step calls — no prose.
+@algebra_step("equation_before", "rule_name", "equation_after")
 
-Available rules:
-  - substitute: replace a variable using its known expression
-  - simplify: distribute, combine numeric terms
-  - combine_like: collect like-variable terms
-  - isolate_var: solve for one variable on the LHS
-  - evaluate: compute a numerical value
+The runtime mathematically verifies that "equation_after" equals
+"equation_before" under "rule_name". If not, the call is rejected.
 
-Solve step-by-step. Each call's "before" should be the previous
-call's "after" (or one of the original equations). Stop when you
-have x and y as numeric values.
+Allowed rule_name values: substitute, simplify, combine_like,
+isolate_var, evaluate.
+
+Worked example (this is the literal format):
+
+@algebra_step("x + y = 5", "isolate_var", "x = 5 - y")
+@algebra_step("2(5 - y) + 3y = 12", "simplify", "10 + y = 12")
+@algebra_step("10 + y = 12", "isolate_var", "y = 2")
+@algebra_step("x = 5 - 2", "evaluate", "x = 3")
+
+Each "before" should be the previous "after" or one of the
+original equations. Stop when both unknowns are numbers.
 """
 
 
 PROBLEM = """\
-Solve this system of equations for integer x and y:
-  Equation A: 2x + 3y = 12
-  Equation B: x + y = 5
+Solve this system for integer x and y. Use @algebra_step calls in
+the exact syntax shown in the system prompt. Output nothing else.
 
-Use @algebra_step calls. End with x and y as concrete integers.
+Equations:
+  2x + 3y = 12
+  x + y = 5
 """
 
 
@@ -111,6 +115,7 @@ def main() -> None:
         system=SYSTEM,
         max_turn_tokens=4096,
         max_calls_per_turn=12,
+        allow_free_text=False,  # tool-only — every sample is an @-call
     )
 
     print()
