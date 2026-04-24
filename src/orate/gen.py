@@ -21,10 +21,16 @@ class Gen:
 
     Subclasses implement tightening-on-reject: when `where=` fails on a
     sample, the accept set is narrowed and the engine is re-queried.
-    The narrowing is deterministic — this is the ADR-0014 stance: no
-    dice rolling to reach correctness.
+    The narrowing is deterministic — no dice rolling to reach correctness.
+
+    For finite domains (Choice, Int in practical ranges, Bool), the
+    compile step in ``orate.compile`` pre-computes the exact accept set
+    via witness enumeration before the engine sees the yield. The
+    rejection loop is the honest fallback for when enumeration isn't
+    feasible (unbounded strings, opaque predicates on huge ranges).
     """
 
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 16
 
@@ -32,11 +38,6 @@ class Gen:
         raise NotImplementedError
 
     def _format_reject(self, value: Any) -> str | None:
-        """Phase-B hook: produce a natural-language reject message on predicate fail.
-
-        The runner can use this to append context to the session before
-        the next retry. Engine-agnostic; the injection is the runner's job.
-        """
         if self.reject_message is None:
             return None
         if callable(self.reject_message):
@@ -44,13 +45,7 @@ class Gen:
         return self.reject_message
 
     def _notify_reject(self, engine: Any, value: Any) -> None:
-        """Inject a natural-language reject hint into the engine's session.
-
-        No-op unless (a) the Gen has a reject_message and (b) the engine
-        implements inject_context. This is Phase-B: the grammar still
-        tightens, but the model *also* sees why the last sample failed,
-        so its next argmax moves to a different region of the accept set.
-        """
+        """Phase-B: inject a natural-language reject hint into the engine's session."""
         msg = self._format_reject(value)
         if msg and hasattr(engine, "inject_context"):
             engine.inject_context(f"(note: {msg})")
@@ -62,24 +57,23 @@ class Choice(Gen):
 
     options: Sequence[str] = ()
     where: Callable[[str], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 16
 
     def dispatch(self, engine: Engine) -> str:
-        remaining = list(self.options)
-        if not remaining:
-            raise ValueError("gen.choice requires at least one option")
-        attempts = 0
-        while remaining and attempts < self.max_retries:
-            pick = engine.sample_choice(remaining)
-            if self.where is None or self.where(pick):
-                return pick
-            self._notify_reject(engine, pick)
-            remaining = [o for o in remaining if o != pick]
-            attempts += 1
-        raise GrammarExhausted(
-            f"gen.choice: no option in {list(self.options)!r} satisfies predicate"
-        )
+        # Layer 1: witness-enumerate the accept set. For Choice this is
+        # always enumerable; rejection-sampling never fires here.
+        from orate.compile import enumerate_choice  # noqa: PLC0415
+
+        accept = enumerate_choice(self.options, self.where)
+        if not accept:
+            raise GrammarExhausted(
+                f"gen.choice: no option in {list(self.options)!r} satisfies predicate"
+            )
+        if len(accept) == 1:
+            return accept[0]
+        return engine.sample_choice(accept)
 
 
 @dataclass
@@ -89,12 +83,33 @@ class Int(Gen):
     min_val: int = 0
     max_val: int = 0
     where: Callable[[int], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 16
 
     def dispatch(self, engine: Engine) -> int:
         if self.min_val > self.max_val:
             raise ValueError(f"gen.int: min={self.min_val} > max={self.max_val}")
+
+        # Layer 1: witness-enumerate the accept set when the range is
+        # small enough (default budget: 10k). For the common case this
+        # eliminates the retry loop entirely — the engine sees only the
+        # pre-filtered values and cannot emit a rejection.
+        from orate.compile import enumerate_int  # noqa: PLC0415
+
+        accept = enumerate_int(self.min_val, self.max_val, self.where)
+        if accept is not None:
+            if not accept:
+                raise GrammarExhausted(
+                    f"gen.int[{self.min_val},{self.max_val}]: no value satisfies predicate"
+                )
+            if len(accept) == 1:
+                return accept[0]
+            pick_str = engine.sample_choice([str(v) for v in accept])
+            return int(pick_str)
+
+        # Fallback: domain too large for enumeration. Use today's
+        # rejection-sampling + tightening loop.
         excluded: set[int] = set()
         attempts = 0
         while attempts < self.max_retries:
@@ -117,14 +132,18 @@ class Int(Gen):
 class String(Gen):
     """Free string with optional regex constraint and length cap.
 
-    Tightening on reject is weak here (no natural "exclude one string"
-    narrowing). We rely on max_retries and on `reject_message` carrying
-    the steering signal into the next attempt's context.
+    String domains are unbounded, so witness enumeration doesn't apply.
+    The ``pattern=`` kwarg compiles directly to an XGrammar regex
+    constraint (that's the "pattern → grammar" path from the plan —
+    users ask for it explicitly rather than having it inferred from a
+    ``where=`` lambda). For arbitrary ``where=`` predicates we fall back
+    to rejection sampling with tightening and Phase-B context injection.
     """
 
     max_len: int = 256
     pattern: str | None = None
     where: Callable[[str], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 8
 
@@ -154,49 +173,102 @@ class Bool(Gen):
     """Sample True or False."""
 
     where: Callable[[bool], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 4
 
     def dispatch(self, engine: Engine) -> bool:
-        candidates = [True, False]
-        for _ in range(self.max_retries):
-            pick = engine.sample_bool()
-            if self.where is None or self.where(pick):
-                return pick
-            self._notify_reject(engine, pick)
-            candidates = [c for c in candidates if c != pick]
-            if not candidates:
-                break
-        raise GrammarExhausted("gen.bool: no value satisfies predicate")
+        # Layer 1: the domain has two values; always enumerable.
+        from orate.compile import enumerate_bool  # noqa: PLC0415
+
+        accept = enumerate_bool(self.where)
+        if not accept:
+            raise GrammarExhausted("gen.bool: no value satisfies predicate")
+        if len(accept) == 1:
+            return accept[0]
+        # Both values are accepted; let the model's argmax pick.
+        return engine.sample_bool()
 
 
 @dataclass
 class Struct(Gen):
     """Compound sugar: yield a dict of typed fields in one logical step.
 
-    Semantically equivalent to yielding each field in sequence and
-    packaging into a dict. Engines that support compound grammar
-    lowering (XGrammar) can fuse the fields into a single sampling
-    call; engines that don't (Mock) fall back to sequential dispatch.
+    With a cross-field ``where=``, Struct applies forward-checking: as
+    each field is bound, the remaining fields' domains are recompiled
+    with the cross-field predicate closed over the bound values. This
+    is the witness-enumeration primitive applied sequentially; no CSP
+    solver required.
     """
 
     fields: dict[str, Gen] = field(default_factory=dict)
     where: Callable[[dict], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
     max_retries: int = 8
 
     def dispatch(self, engine: Engine) -> dict:
+        # Fast path: no cross-field predicate → dispatch each field
+        # independently (each field's own where= still tightens).
+        if self.where is None:
+            if hasattr(engine, "sample_struct"):
+                return engine.sample_struct(self.fields)
+            return {name: child.dispatch(engine) for name, child in self.fields.items()}
+
+        # With a cross-field predicate, forward-check each field against
+        # the bindings accumulated so far. For fields whose domain
+        # can't be enumerated (e.g. String), the field dispatches
+        # natively and the cross-field predicate is enforced at the end
+        # via the struct-level rejection loop (backup behavior).
+        from orate.compile import compile_struct_field  # noqa: PLC0415
+
         attempts = 0
         while attempts < self.max_retries:
-            if hasattr(engine, "sample_struct"):
-                result = engine.sample_struct(self.fields)
-            else:
-                result = {name: child.dispatch(engine) for name, child in self.fields.items()}
-            if self.where is None or self.where(result):
-                return result
-            self._notify_reject(engine, result)
+            bound: dict[str, Any] = {}
+            failed = False
+            for name, spec in self.fields.items():
+                # Attach field name for compile_struct_field's hint helper.
+                import contextlib  # noqa: PLC0415
+
+                with contextlib.suppress(Exception):
+                    object.__setattr__(spec, "_field_name", name)
+                accept = compile_struct_field(spec, bound, self.where)
+                if accept is not None:
+                    if not accept:
+                        # No value for this field can satisfy the cross
+                        # predicate given already-bound siblings. Treat
+                        # as a struct-level rejection.
+                        failed = True
+                        break
+                    if len(accept) == 1:
+                        bound[name] = accept[0]
+                    else:
+                        # Let the engine pick among the feasible values.
+                        pick = engine.sample_choice([str(v) for v in accept])
+                        bound[name] = _coerce_to_field_type(pick, spec)
+                else:
+                    # Field isn't enumerable: dispatch natively, then
+                    # the cross predicate will be re-checked below.
+                    bound[name] = spec.dispatch(engine)
+            if failed:
+                self._notify_reject(engine, bound)
+                attempts += 1
+                continue
+            if self.where is None or self.where(bound):
+                return bound
+            self._notify_reject(engine, bound)
             attempts += 1
         raise GrammarExhausted("gen.struct: max_retries exceeded")
+
+
+def _coerce_to_field_type(pick: str, spec: Gen) -> Any:
+    """When Struct forward-checking routes an Int/Bool through sample_choice,
+    the engine returns the stringified value; convert back to the native type."""
+    if isinstance(spec, Int):
+        return int(pick)
+    if isinstance(spec, Bool):
+        return pick == "True"
+    return pick
 
 
 @dataclass
@@ -204,13 +276,13 @@ class ToolCall(Gen):
     """Tool call as a yield: unifies structured-output / tool-use / agent APIs.
 
     The Act-3 punchline: there's no separate "tool-use API." A tool call
-    is just another decision point in the program. The runner dispatches
-    it against whichever engine is active.
+    is just another decision point in the program.
     """
 
     tool: Callable[..., Any] = field(default=lambda: None)
     args: dict = field(default_factory=dict)
     where: Callable[[Any], bool] | None = None
+    description: str | None = None
     reject_message: Callable[[Any], str] | str | None = None
 
     def dispatch(self, engine: Engine) -> Any:
@@ -227,12 +299,14 @@ def choice(
     options: Sequence[str],
     *,
     where: Callable[[str], bool] | None = None,
+    description: str | None = None,
     reject_message: Callable[[Any], str] | str | None = None,
     max_retries: int = 16,
 ) -> Choice:
     return Choice(
         options=list(options),
         where=where,
+        description=description,
         reject_message=reject_message,
         max_retries=max_retries,
     )
@@ -243,6 +317,7 @@ def integer(
     max_val: int,
     *,
     where: Callable[[int], bool] | None = None,
+    description: str | None = None,
     reject_message: Callable[[Any], str] | str | None = None,
     max_retries: int = 16,
 ) -> Int:
@@ -250,13 +325,12 @@ def integer(
         min_val=min_val,
         max_val=max_val,
         where=where,
+        description=description,
         reject_message=reject_message,
         max_retries=max_retries,
     )
 
 
-# Alias: `int` shadows the builtin, so we expose both. Users write `gen.integer(...)`
-# or `gen.int_(...)`; the former is preferred.
 int_ = integer
 
 
@@ -265,6 +339,7 @@ def string(
     max_len: int = 256,
     pattern: str | None = None,
     where: Callable[[str], bool] | None = None,
+    description: str | None = None,
     reject_message: Callable[[Any], str] | str | None = None,
     max_retries: int = 8,
 ) -> String:
@@ -272,6 +347,7 @@ def string(
         max_len=max_len,
         pattern=pattern,
         where=where,
+        description=description,
         reject_message=reject_message,
         max_retries=max_retries,
     )
@@ -280,34 +356,54 @@ def string(
 def boolean(
     *,
     where: Callable[[bool], bool] | None = None,
+    description: str | None = None,
     reject_message: Callable[[Any], str] | str | None = None,
     max_retries: int = 4,
 ) -> Bool:
-    return Bool(where=where, reject_message=reject_message, max_retries=max_retries)
+    return Bool(
+        where=where,
+        description=description,
+        reject_message=reject_message,
+        max_retries=max_retries,
+    )
 
 
 bool_ = boolean
 
 
 def struct(
+    *,
+    where: Callable[[dict], bool] | None = None,
+    description: str | None = None,
+    reject_message: Callable[[Any], str] | str | None = None,
+    max_retries: int = 8,
     **fields: Gen,
 ) -> Struct:
     """Compound sugar: every kwarg is a field name -> Gen spec.
 
-    Usage: yield gen.struct(name=gen.string(max_len=20), age=gen.integer(0, 120))
+    A cross-field ``where=`` enables forward-checking (Layer 3): as each
+    field is bound, remaining fields' domains are re-compiled with the
+    predicate closed over bound values.
+
+    Usage::
+
+        yield gen.struct(x=gen.integer(0, 10), y=gen.integer(0, 10),
+                         where=lambda d: d["x"] + d["y"] == 10)
     """
-    return Struct(fields=fields)
+    return Struct(
+        fields=fields,
+        where=where,
+        description=description,
+        reject_message=reject_message,
+        max_retries=max_retries,
+    )
 
 
 def tool(
     fn: Callable[..., Any],
     /,
+    *,
+    description: str | None = None,
     **args: Any,
 ) -> ToolCall:
-    """Yield a tool call. Runs the function now; returned value is the yield result.
-
-    Under the orate thesis this is not a special "tool-use API" — it's
-    just another yield. The engine doesn't need to know about tools at
-    all; the runner handles ToolCall locally.
-    """
-    return ToolCall(tool=fn, args=args)
+    return ToolCall(tool=fn, args=args, description=description)

@@ -18,49 +18,55 @@ from orate.engine.mock import MockEngine
 
 
 def test_phase_b_reject_message_injected_on_predicate_fail():
-    """Narrow predicate guarantees at least one rejection, so _context is non-empty."""
+    """Phase-B fires on the fallback rejection path.
+
+    Witness enumeration (Layer 1) short-circuits rejection for finite
+    small domains, so to observe Phase-B injection we pick a path that
+    cannot be enumerated: a string with an opaque ``where=`` predicate.
+    """
     engine = MockEngine(seed=0)
 
     @program
-    def pick_17():
-        n = yield gen.integer(
-            1,
-            20,
-            where=lambda x: x == 17,
-            reject_message=lambda v: f"{v} is not 17",
-            max_retries=50,
+    def pick_contains_a():
+        s = yield gen.string(
+            max_len=6,
+            where=lambda x: "a" in x,
+            reject_message=lambda v: f"{v!r} does not contain 'a'",
+            max_retries=30,
         )
-        return n
+        return s
 
-    result = pick_17().run(engine=engine)
-    assert result == 17
-    # With a single-value predicate over 20 candidates, rejections are
-    # effectively certain. Every note in context should be properly formatted.
+    result = pick_contains_a().run(engine=engine)
+    assert "a" in result
     assert len(engine._context) >= 1, "Phase-B did not inject on rejection"
     for note in engine._context:
-        assert "is not 17" in note
+        assert "does not contain" in note
         assert note.startswith("(note:")
 
 
 def test_phase_b_string_reject_message_not_callable():
-    """String form of reject_message (not a callable) also injects."""
+    """String form of reject_message (not a callable) also injects.
+
+    Same setup: unbounded string domain guarantees the fallback
+    rejection loop runs, so reject_message fires.
+    """
     engine = MockEngine(seed=0)
 
     @program
-    def pick_only_a():
-        c = yield gen.choice(
-            ["a", "b", "c", "d", "e"],
-            where=lambda x: x == "a",
-            reject_message="that was not 'a'",
+    def pick_contains_x():
+        s = yield gen.string(
+            max_len=6,
+            where=lambda v: "x" in v,
+            reject_message="that string didn't contain 'x'",
+            max_retries=40,
         )
-        return c
+        return s
 
-    result = pick_only_a().run(engine=engine)
-    assert result == "a"
-    # With 5 options and 1 accepted, seed=0 sampling picks "b" first.
+    result = pick_contains_x().run(engine=engine)
+    assert "x" in result
     assert len(engine._context) >= 1
     for note in engine._context:
-        assert "not 'a'" in note
+        assert "didn't contain" in note
 
 
 def test_phase_b_no_reject_message_means_no_injection():
