@@ -24,7 +24,7 @@ from .checkers import (
     derivable_under,
     equivalent_under,
 )
-from .logic import inference_step
+from .logic import inference_step, qed
 
 __all__ = [
     "ALGEBRA_RULES",
@@ -34,4 +34,5 @@ __all__ = [
     "done",
     "equivalent_under",
     "inference_step",
+    "qed",
 ]

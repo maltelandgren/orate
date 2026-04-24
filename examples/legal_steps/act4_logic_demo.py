@@ -17,7 +17,7 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
-from legal_steps.logic import inference_step  # noqa: E402
+from legal_steps.logic import inference_step, qed  # noqa: E402
 from orate import (  # noqa: E402
     FreeText,
     NewProgramRegistered,
@@ -40,37 +40,45 @@ def _pick_model() -> str:
 
 
 SYSTEM = """\
-You are a careful step-by-step logical reasoner. You have ONE tool:
+You output ONLY @inference_step calls and one final @qed. No
+markdown, no prose. Exact syntax:
 
-  @inference_step("premises", "rule", "conclusion")
+@inference_step("premises", rule, "conclusion")
 
-It applies one legal propositional deduction. Premises are
-semicolon-separated. The runtime mathematically verifies that
-"conclusion" follows from "premises" under "rule"; if not, the
-call is rejected.
+`premises` is a JSON-quoted string of semicolon-separated
+propositions (e.g. "P -> Q; P"). `rule` is a bare identifier.
+`conclusion` is a JSON-quoted proposition. The runtime verifies
+derivability; if invalid, the call is rejected.
 
-Available rules:
-  - modus_ponens: from "P -> Q; P" derive "Q"
-  - modus_tollens: from "P -> Q; ~Q" derive "~P"
-  - hypothetical_syllogism: from "P -> Q; Q -> R" derive "P -> R"
-  - conjunction: from "P; Q" derive "P & Q"
-  - simplification: from "P & Q" derive "P" or "Q"
+Rules:
+  modus_ponens             — from "P -> Q; P" derive "Q"
+  modus_tollens            — from "P -> Q; ~Q" derive "~P"
+  hypothetical_syllogism   — from "P -> Q; Q -> R" derive "P -> R"
+  conjunction              — from "P; Q" derive "P & Q"
+  simplification           — from "P & Q" derive "P" (or "Q")
 
-Use the propositional notation '->' for implication, '&' for and,
-'|' for or, '~' for not. Make small steps. End when you've derived
-the goal.
+Use '->' for implies, '&' for and, '|' for or, '~' for not.
+
+When you've derived the goal, emit @qed("R") to end the turn.
+
+Worked example — given P -> Q, Q -> R, P; prove R:
+
+@inference_step("P -> Q; P", modus_ponens, "Q")
+@inference_step("Q -> R; Q", modus_ponens, "R")
+@qed("R")
 """
 
 
 PROBLEM = """\
+Use @inference_step calls in the exact syntax from the system prompt.
+End with @qed when done.
+
 Given:
-  P -> Q
-  Q -> R
-  P
+  A -> B
+  B -> C
+  A
 
-Prove R.
-
-Use @inference_step calls.
+Prove C.
 """
 
 
@@ -102,7 +110,7 @@ def main() -> None:
 
     session = Session(
         engine=engine,
-        programs={"inference_step": inference_step},
+        programs={"inference_step": inference_step, "qed": qed},
         system=SYSTEM,
         max_turn_tokens=4096,
         max_calls_per_turn=12,

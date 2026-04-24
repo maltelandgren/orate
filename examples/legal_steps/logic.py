@@ -25,6 +25,20 @@ def _split_premises(s: str) -> list[str]:
     return [p.strip() for p in s.split(";") if p.strip()]
 
 
+@program(ends_turn=True)
+def qed():
+    """Signal that the proof is complete and surface the conclusion.
+
+    Calling this ends the assistant turn. Pair with the inference_step
+    chain like @done is paired with algebra_step.
+    """
+    proven = yield gen.string(
+        max_len=40,
+        description="the proven proposition (e.g. 'R')",
+    )
+    return {"proven": proven}
+
+
 @program
 def inference_step():
     """One legal propositional deduction step.
