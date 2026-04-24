@@ -28,10 +28,15 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from orate.body_grammar import BodyGrammarError, derive_body_grammar_rules
+from orate.body_grammar import (
+    ArgType,
+    BodyGrammarError,
+    derive_body_grammar_rules,
+    derive_call_arg_types,
+)
 from orate.meta import (
     PROGRAM_SOURCE_GRAMMAR,
     MetaProgramInvalid,
@@ -73,6 +78,9 @@ Event = FreeText | ProgramInvoked | NewProgramRegistered | TurnEnded
 # ---- session -------------------------------------------------------------
 
 
+DEFAULT_MODE = "default"
+
+
 @dataclass
 class _RegistryEntry:
     name: str
@@ -80,6 +88,15 @@ class _RegistryEntry:
     body_grammar_rules: dict[str, str]  # name → body-rule text (includes helpers)
     root_rule_name: str  # e.g. "foo_body"
     ends_turn: bool = False
+    mode_transition: str | None = None
+    # ``mode`` controls visibility: a program is callable only when the
+    # session's active mode matches. ``None`` means "available in every
+    # mode" — used for cross-cutting tools like make_new_program.
+    mode: str | None = None
+    # ``arg_types`` lets _parse_args coerce raw grammar fragments back
+    # into native Python values. Empty list when typing isn't available
+    # (e.g. make_new_program, which is hand-handled).
+    arg_types: list[ArgType] = field(default_factory=list)
 
 
 # One-unit outer grammar: either a free-text chunk (no '@') or exactly one
@@ -167,8 +184,94 @@ def _serialize_result(value: Any) -> str:
         return str(value)
 
 
+def _scan_typed_args(text: str, arg_types: list[ArgType]) -> tuple:
+    """Walk ``text`` left-to-right consuming one arg per ArgType.
+
+    Driven by types: each kind has its own scanner that knows when its
+    representation ends. ``", "`` separates args. We don't allow extra
+    whitespace; the grammar emits exactly the shape we expect.
+
+    Returns a tuple of native Python values matching ``arg_types`` in
+    order. Raises ``ValueError`` on shape mismatch with a position hint.
+    """
+    pos = 0
+    n = len(text)
+    values: list[Any] = []
+    for idx, t in enumerate(arg_types):
+        if idx > 0:
+            if text[pos : pos + 2] != ", ":
+                raise ValueError(
+                    f"expected ', ' before arg #{idx} at pos {pos} in {text!r}"
+                )
+            pos += 2
+
+        if t.kind == "integer":
+            start = pos
+            if pos < n and text[pos] == "-":
+                pos += 1
+            digit_start = pos
+            while pos < n and text[pos].isdigit():
+                pos += 1
+            if pos == digit_start:
+                raise ValueError(f"expected digits for arg #{idx} at pos {start}")
+            values.append(int(text[start:pos]))
+        elif t.kind == "boolean":
+            if text.startswith("true", pos):
+                values.append(True)
+                pos += 4
+            elif text.startswith("false", pos):
+                values.append(False)
+                pos += 5
+            else:
+                raise ValueError(f"expected true/false for arg #{idx} at pos {pos}")
+        elif t.kind in ("choice", "string"):
+            if pos >= n or text[pos] != '"':
+                raise ValueError(
+                    f'expected \'"\' opening quote for arg #{idx} at pos {pos}'
+                )
+            pos += 1  # consume opening quote
+            content_start = pos
+            buf: list[str] = []
+            while pos < n and text[pos] != '"':
+                if text[pos] == "\\" and pos + 1 < n:
+                    nxt = text[pos + 1]
+                    buf.append('"' if nxt == '"' else "\\" if nxt == "\\" else nxt)
+                    pos += 2
+                else:
+                    buf.append(text[pos])
+                    pos += 1
+            if pos >= n:
+                raise ValueError(
+                    f"unterminated string for arg #{idx} starting at pos {content_start}"
+                )
+            pos += 1  # consume closing quote
+            values.append("".join(buf))
+        else:
+            raise ValueError(f"unknown arg kind {t.kind!r} at index {idx}")
+
+    if pos != n:
+        raise ValueError(f"trailing unparsed content at pos {pos} in {text!r}")
+    return tuple(values)
+
+
 class Session:
-    """Persistent-KV conversational session with tool accumulation."""
+    """Persistent-KV conversational session with tool accumulation.
+
+    Modes
+    -----
+    A session has an active *mode* (default: ``"default"``). Each
+    registered program is either *unscoped* (visible in every mode) or
+    *mode-scoped* (visible only when the active mode matches). The
+    outer grammar is rebuilt to expose only the visible subset whenever
+    the mode changes.
+
+    Mode transitions are program-driven: a program decorated with
+    ``@program(mode_transition="combat")`` flips the session into the
+    ``"combat"`` mode after a successful invocation, so the next sample
+    is taken under a grammar built from the combat-mode programs only.
+    Pair with ``mode_transition="default"`` (or whatever name) on an
+    ``exit_*`` program to return.
+    """
 
     def __init__(
         self,
@@ -191,6 +294,7 @@ class Session:
         self._consecutive_synth_failures = 0
         self.max_calls_per_turn = max_calls_per_turn
         self.registry: dict[str, _RegistryEntry] = {}
+        self._active_mode: str = DEFAULT_MODE
 
         # Bootstrap: register make_new_program built-in, plus any seeds.
         self._register_make_new_program()
@@ -199,15 +303,31 @@ class Session:
                 continue  # already bootstrapped
             self.register(name, fn)
 
-        self._outer_grammar = _build_outer_grammar(self.registry)
+        self._rebuild_outer_grammar()
         self.engine.begin_session(system)
         self.transcript: list[Event] = []
 
     # ---- registration ---------------------------------------------------
 
-    def register(self, name: str, fn: Callable[..., ProgramInvocation]) -> None:
-        """Add a @program to the registry, rebuild the outer grammar."""
+    def register(
+        self,
+        name: str,
+        fn: Callable[..., ProgramInvocation],
+        *,
+        mode: str | None = None,
+    ) -> None:
+        """Add a @program to the registry, rebuild the outer grammar.
+
+        ``mode=None`` means the program is visible in every mode (the
+        default — appropriate for cross-cutting tools). Pass an explicit
+        mode name to scope the program: it becomes callable only when
+        ``self._active_mode`` matches.
+        """
         rules = derive_body_grammar_rules(fn)  # dict of {rule_name: rule_body}
+        try:
+            arg_types = derive_call_arg_types(fn)
+        except BodyGrammarError:
+            arg_types = []
         # Root rule is conventionally "<program_fn.__name__>_body".
         fn_name = getattr(fn, "__name__", name)
         root = f"{fn_name}_body"
@@ -216,15 +336,54 @@ class Session:
                 f"derive_body_grammar_rules for {name!r} did not produce expected root rule "
                 f"{root!r} (got keys {sorted(rules.keys())})"
             )
-        ends_turn = getattr(fn(), "ends_turn", False) if callable(fn) else False
+        # Prefer attributes stashed on the wrapper at decoration time;
+        # fall back to invoking once if needed (some legacy registrations
+        # pass bare functions). The wrapper stash is cheaper and avoids
+        # surprise side effects from a no-arg construction call.
+        ends_turn = bool(getattr(fn, "__orate_ends_turn__", False))
+        mode_transition = getattr(fn, "__orate_mode_transition__", None)
+        if not ends_turn and callable(fn):
+            try:
+                inv = fn()
+                ends_turn = bool(getattr(inv, "ends_turn", False))
+                mode_transition = mode_transition or getattr(inv, "mode_transition", None)
+            except TypeError:
+                pass  # program takes args; nothing more to learn
         self.registry[name] = _RegistryEntry(
             name=name,
             fn=fn,
             body_grammar_rules=rules,
             root_rule_name=root,
             ends_turn=ends_turn,
+            mode_transition=mode_transition,
+            mode=mode,
+            arg_types=arg_types,
         )
-        self._outer_grammar = _build_outer_grammar(self.registry)
+        self._rebuild_outer_grammar()
+
+    def set_mode(self, mode: str) -> None:
+        """Switch the session's active mode and rebuild the outer grammar.
+
+        Programs whose ``mode`` is ``None`` remain visible. Programs
+        scoped to ``mode`` become visible; programs scoped to other
+        modes drop out of the grammar until the session returns to them.
+        """
+        self._active_mode = mode
+        self._rebuild_outer_grammar()
+
+    @property
+    def active_mode(self) -> str:
+        return self._active_mode
+
+    def _visible_registry(self) -> dict[str, _RegistryEntry]:
+        return {
+            name: entry
+            for name, entry in self.registry.items()
+            if entry.mode is None or entry.mode == self._active_mode
+        }
+
+    def _rebuild_outer_grammar(self) -> None:
+        self._outer_grammar = _build_outer_grammar(self._visible_registry())
 
     def _register_make_new_program(self) -> None:
         """Bootstrap: make_new_program is grammar-inlined but dispatched
@@ -329,14 +488,34 @@ class Session:
             return []
 
         entry = self.registry[name]
-        # Args come pre-parsed by the body grammar — for simple cases we
-        # just echo them as a tuple. Richer arg deserialization (typed
-        # tuples, dicts) is a v2 extension.
-        args = self._parse_args(args_text)
+        # Visibility check: a mode-scoped program shouldn't be in the
+        # outer grammar at all when its mode isn't active, but we
+        # double-check defensively in case the grammar leaked.
+        if entry.mode is not None and entry.mode != self._active_mode:
+            self.engine.append(
+                f"\n[session: program {name!r} not callable in mode {self._active_mode!r}]\n"
+            )
+            return []
+
+        try:
+            args = self._parse_args(args_text, entry.arg_types)
+        except ValueError as e:
+            self.engine.append(f"\n[session: arg parse failed for {name}: {e}]\n")
+            return []
         result = {"emitted_args": args_text, "parsed": args}
         self.engine.append(f" → {_serialize_result(result)}\n")
 
         events: list[Event] = [ProgramInvoked(name=name, args=args, result=result)]
+
+        # Apply mode transition (if any) before deciding whether to end
+        # the turn — a transition + ends_turn together mean "client gets
+        # the args, and the next turn starts in the new mode."
+        if entry.mode_transition is not None:
+            self.set_mode(entry.mode_transition)
+            self.engine.append(
+                f"\n[session: mode → {entry.mode_transition!r}]\n"
+            )
+
         if entry.ends_turn:
             events.append(TurnEnded("ends_turn"))
         return events
@@ -420,13 +599,28 @@ class Session:
             ),
         ]
 
-    def _parse_args(self, args_text: str) -> tuple:
-        """Split the emitted arg blob into a tuple of positional values.
+    def _parse_args(self, args_text: str, arg_types: list[ArgType]) -> tuple:
+        """Decode the emitted arg blob into a typed tuple.
 
-        The body grammar emits fields separated by ``, ``. This is a
-        shallow split; a v2 parser would honor the per-field types
-        (int vs str vs bool) but here we keep all fields as strings.
+        When ``arg_types`` is supplied (the common path: any program
+        registered via ``Session.register`` carries them), each arg is
+        scanned according to its kind:
+
+        * ``integer`` — leading ``-?`` then digits, parsed via ``int``.
+        * ``boolean`` — literal ``true``/``false``.
+        * ``string`` / ``choice`` — JSON-style ``"..."`` with ``\\\\`` and
+          ``\\"`` escapes.
+
+        The body grammar guarantees that args are emitted in this exact
+        shape, separated by ``", "``. With ``arg_types`` we can handle
+        string content containing a literal ``", "`` correctly — naive
+        splitting on ``", "`` would have torn it apart.
+
+        When ``arg_types`` is empty (legacy path, or the special
+        make_new_program entry), fall back to the shallow split.
         """
         if not args_text:
             return ()
-        return tuple(part.strip() for part in args_text.split(", "))
+        if not arg_types:
+            return tuple(part.strip() for part in args_text.split(", "))
+        return _scan_typed_args(args_text, arg_types)

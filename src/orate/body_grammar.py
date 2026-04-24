@@ -26,12 +26,36 @@ import ast
 import inspect
 import textwrap
 from collections.abc import Callable
+from dataclasses import dataclass
 
 __all__ = [
+    "ArgType",
     "BodyGrammarError",
     "derive_body_grammar",
     "derive_body_grammar_rules",
+    "derive_call_arg_types",
 ]
+
+
+@dataclass(frozen=True)
+class ArgType:
+    """Type info for one positional arg of an @-call.
+
+    The Session runner consults this when it parses ``@foo(args)``: each
+    arg is decoded according to its kind so dispatch sees native Python
+    values (int / bool / str) rather than the raw grammar fragment.
+
+    ``kind`` is one of ``"choice" | "integer" | "string" | "boolean"``.
+    The remaining fields carry kind-specific metadata used for
+    diagnostics or future extensions; they're populated only when
+    relevant.
+    """
+
+    kind: str
+    options: tuple[str, ...] = ()  # for choice
+    lo: int = 0  # for integer
+    hi: int = 0  # for integer
+    max_len: int = 0  # for string
 
 
 class BodyGrammarError(ValueError):
@@ -93,6 +117,59 @@ def derive_body_grammar_rules(program_fn: Callable) -> dict[str, str]:
     else:
         rules[root] = f"{root} ::= " + ' ", " '.join(fragments)
     return rules
+
+
+def derive_call_arg_types(program_fn: Callable) -> list[ArgType]:
+    """Return a list of ``ArgType`` (one per yielded gen call) for ``program_fn``.
+
+    Used by the Session runner to coerce positional args at the call site
+    back into native Python values: ``"42"`` → ``42`` for an integer,
+    ``"true"`` → ``True`` for a boolean, ``"\\"hello\\""`` → ``"hello"``
+    for a string/choice.
+
+    Same accept-set as :func:`derive_body_grammar_rules`: only programs
+    whose body is a straight-line sequence of ``var = yield gen.X(...)``
+    yields can be processed. Otherwise raises BodyGrammarError.
+    """
+    fn_def = _parse_program_ast(program_fn)
+    yields = _extract_yields(fn_def)
+    return [_arg_type_for_gen_call(call, idx) for idx, call in enumerate(yields)]
+
+
+def _arg_type_for_gen_call(call: ast.Call, index: int) -> ArgType:
+    func = call.func
+    assert isinstance(func, ast.Attribute)  # guaranteed by _check_straight_line_assign
+    method = func.attr
+    if method == "choice":
+        if not call.args or not isinstance(call.args[0], ast.List):
+            return ArgType(kind="choice")
+        options: list[str] = []
+        for elt in call.args[0].elts:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                options.append(elt.value)
+        return ArgType(kind="choice", options=tuple(options))
+    if method == "integer":
+        if len(call.args) >= 2:
+            try:
+                lo = _as_int_literal(call.args[0], index, "integer lo", "<infer>")
+                hi = _as_int_literal(call.args[1], index, "integer hi", "<infer>")
+                return ArgType(kind="integer", lo=lo, hi=hi)
+            except BodyGrammarError:
+                pass
+        return ArgType(kind="integer")
+    if method == "string":
+        max_len = 0
+        for kw in call.keywords:
+            if kw.arg == "max_len" and isinstance(kw.value, ast.Constant) and isinstance(
+                kw.value.value, int
+            ):
+                max_len = kw.value.value
+        return ArgType(kind="string", max_len=max_len)
+    if method == "boolean":
+        return ArgType(kind="boolean")
+    raise BodyGrammarError(
+        f"yield #{index} uses unsupported gen.{method}(...) for arg-type derivation"
+    )
 
 
 # ---- source inspection ---------------------------------------------

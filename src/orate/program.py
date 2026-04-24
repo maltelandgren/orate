@@ -37,6 +37,14 @@ class ProgramInvocation:
     On each yielded Gen, the runner calls Gen.dispatch(engine); Gen
     internally handles predicate rejection and grammar tightening. The
     ProgramInvocation is the outer unit for Phase-C whole-program retry.
+
+    ``ends_turn`` and ``mode_transition`` are metadata read by the
+    Session runner — neither is acted on inside .run() itself. The
+    Session inspects them after a successful invocation to decide
+    whether to (a) hand control back to the client (ends_turn) or
+    (b) swap the visible-program registry to a different mode (mode
+    transition; e.g. ``@enter_combat`` flips the session into
+    "combat" mode).
     """
 
     body: Callable[..., Iterator[Gen]]
@@ -45,6 +53,7 @@ class ProgramInvocation:
     whole_program_retries: int = 0
     reject_message: Callable[[int, BaseException], str] | str | None = None
     ends_turn: bool = False
+    mode_transition: str | None = None
     trace: list[dict] = field(default_factory=list)
 
     def _run_once(self, engine: Engine) -> Any:
@@ -113,6 +122,7 @@ def program(
     whole_program_retries: int = 0,
     reject_message: Callable[[int, BaseException], str] | str | None = None,
     ends_turn: bool = False,
+    mode_transition: str | None = None,
 ) -> Any:
     """Decorator: turn a generator function into a runnable program.
 
@@ -127,10 +137,14 @@ def program(
     The decorated function returns a ProgramInvocation; call `.run(engine=...)`
     to execute. The generator is driven one yield at a time against the engine.
 
-    ``ends_turn`` is metadata only at the @program runner level — it is not
-    read or acted on here. A future Session runner inspects
-    ``invocation.ends_turn`` to decide whether completing this invocation
-    should end the agent turn.
+    ``ends_turn`` is Session-level metadata: when the Session runner
+    completes a call to this program, it ends the assistant turn and
+    hands the parsed args back to the client.
+
+    ``mode_transition`` is Session-level metadata: when set, the Session
+    runner switches its active mode after a successful invocation.
+    Use ``"default"`` to return to the unscoped registry, or any custom
+    mode name registered with ``Session.register(..., mode=...)``.
     """
 
     def decorate(fn_: Callable[..., Iterator[Gen]]) -> Callable[..., ProgramInvocation]:
@@ -142,10 +156,13 @@ def program(
                 whole_program_retries=whole_program_retries,
                 reject_message=reject_message,
                 ends_turn=ends_turn,
+                mode_transition=mode_transition,
             )
 
         wrapper.__wrapped__ = fn_  # type: ignore[attr-defined]
         wrapper.__name__ = getattr(fn_, "__name__", "program")
+        wrapper.__orate_ends_turn__ = ends_turn  # type: ignore[attr-defined]
+        wrapper.__orate_mode_transition__ = mode_transition  # type: ignore[attr-defined]
         return wrapper
 
     if fn is not None and callable(fn):
