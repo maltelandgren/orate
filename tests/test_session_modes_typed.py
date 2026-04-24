@@ -237,3 +237,48 @@ def test_handle_call_decodes_typed_args():
     # ProgramInvoked event with parsed args.
     invoked = events[0]
     assert invoked.args == ("foo", 42, True)
+
+
+# ---- predicate verification --------------------------------------------
+
+
+@program
+def chained_predicate():
+    """Cross-yield where: second value must equal first + 1."""
+    n = yield gen.integer(0, 100)
+    succ = yield gen.integer(0, 100, where=lambda x: x == n + 1)
+    return {"n": n, "succ": succ}
+
+
+@program
+def out_of_range_value():
+    """For testing range-violation on a parsed arg."""
+    n = yield gen.integer(0, 10)
+    return n
+
+
+def test_predicate_passes_for_valid_chain():
+    s = Session(engine=_StubEngine(), programs={"chained_predicate": chained_predicate})
+    events = s._handle_call("@chained_predicate(5, 6)")
+    invoked = events[0]
+    # Successful call: result has emitted_args, no rejection
+    assert "rejected" not in invoked.result
+
+
+def test_predicate_rejects_invalid_chain():
+    s = Session(engine=_StubEngine(), programs={"chained_predicate": chained_predicate})
+    events = s._handle_call("@chained_predicate(5, 9)")  # 9 != 5+1
+    invoked = events[0]
+    assert invoked.result.get("rejected") is True
+    assert "where=" in invoked.result["error"]
+
+
+def test_predicate_rejects_out_of_choice():
+    s = Session(engine=_StubEngine(), programs={"greet": greet})
+    # The body grammar would never produce "weird" — but we test
+    # _verify_program_emission's defense. We emit through _handle_call
+    # directly with a value the grammar would reject.
+    events = s._handle_call('@greet("weird")')
+    invoked = events[0]
+    assert invoked.result.get("rejected") is True
+    assert "is not one of" in invoked.result["error"]

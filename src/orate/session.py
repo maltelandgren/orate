@@ -37,6 +37,7 @@ from orate.body_grammar import (
     derive_body_grammar_rules,
     derive_call_arg_types,
 )
+from orate.gen import Bool, Choice, Gen, Int, String, ToolCall
 from orate.meta import (
     PROGRAM_SOURCE_GRAMMAR,
     MetaProgramInvalid,
@@ -182,6 +183,65 @@ def _serialize_result(value: Any) -> str:
         return json.dumps(value, default=str)
     except (TypeError, ValueError):
         return str(value)
+
+
+def _check_value_against_spec(spec: Gen, value: object, idx: int) -> str | None:
+    """Verify a single parsed value against its Gen spec.
+
+    Returns ``None`` on success, or a short error string identifying
+    the failure. Used by Session._verify_program_emission to enforce
+    predicates the call-site grammar can't capture (cross-yield
+    closures, opaque ``where=`` lambdas).
+    """
+    if isinstance(spec, Choice):
+        if value not in spec.options:
+            return (
+                f"yield #{idx}: {value!r} is not one of "
+                f"{list(spec.options)!r}"
+            )
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: choice {value!r} failed where= predicate"
+        return None
+    if isinstance(spec, Int):
+        if not isinstance(value, int) or isinstance(value, bool):
+            return f"yield #{idx}: expected int, got {type(value).__name__}"
+        if value < spec.min_val or value > spec.max_val:
+            return (
+                f"yield #{idx}: {value} outside "
+                f"[{spec.min_val}, {spec.max_val}]"
+            )
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: integer {value} failed where= predicate"
+        return None
+    if isinstance(spec, Bool):
+        if not isinstance(value, bool):
+            return f"yield #{idx}: expected bool, got {type(value).__name__}"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: boolean {value} failed where= predicate"
+        return None
+    if isinstance(spec, String):
+        if not isinstance(value, str):
+            return f"yield #{idx}: expected str, got {type(value).__name__}"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: string {value!r} failed where= predicate"
+        return None
+    if isinstance(spec, ToolCall):
+        # ToolCalls don't surface at the call-site grammar; skip.
+        return None
+    return None  # unknown Gen subclass — be lenient
+
+
+def _safe_predicate(pred: Callable[[object], object], value: object) -> bool:
+    """Run a where= predicate, returning False on any exception.
+
+    Predicate authors aren't expected to defensively guard against
+    parse failures (sympy.SympifyError, IndexError, …); the verifier
+    should treat any raise as "rejected".
+    """
+    try:
+        return bool(pred(value))
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _scan_typed_args(text: str, arg_types: list[ArgType]) -> tuple:
@@ -502,6 +562,25 @@ class Session:
         except ValueError as e:
             self.engine.append(f"\n[session: arg parse failed for {name}: {e}]\n")
             return []
+
+        # Predicate verification: re-run the program body against the
+        # parsed args, checking each yield's where=/options/range. If
+        # the model emitted a syntactically-valid but semantically-bad
+        # call (e.g. a "simplify" that isn't equivalent), reject and
+        # let the model try again on the next sample.
+        verify_error = self._verify_program_emission(entry.fn, args)
+        if verify_error is not None:
+            self.engine.append(
+                f"\n[session: rejected — {verify_error}. Retry the call.]\n"
+            )
+            return [
+                ProgramInvoked(
+                    name=name,
+                    args=args,
+                    result={"rejected": True, "error": verify_error},
+                )
+            ]
+
         result = {"emitted_args": args_text, "parsed": args}
         self.engine.append(f" → {_serialize_result(result)}\n")
 
@@ -519,6 +598,57 @@ class Session:
         if entry.ends_turn:
             events.append(TurnEnded("ends_turn"))
         return events
+
+    def _verify_program_emission(
+        self,
+        fn: Callable[..., ProgramInvocation],
+        parsed_args: tuple,
+    ) -> str | None:
+        """Drive the @program's body against ``parsed_args``, predicate-checking.
+
+        Returns ``None`` on success, or a human-readable error describing
+        which yield rejected which value. The body is run *as a generator*
+        — at each yield we inspect the ``Gen`` spec, check the
+        corresponding parsed arg against options/range/predicate, then
+        send the parsed value back so subsequent yields' closures see it.
+
+        Programs with parameters (no zero-arg invocation possible) are
+        skipped — verification is opt-in via shape, and the demo
+        programs are all parameterless.
+        """
+        try:
+            invocation = fn()
+        except TypeError:
+            return None  # program has params; nothing to verify here
+
+        body_iter = invocation.body(*invocation.args, **invocation.kwargs)
+        sent: object = None
+        idx = 0
+        while True:
+            try:
+                spec = (
+                    body_iter.send(sent) if sent is not None else next(body_iter)
+                )
+            except StopIteration:
+                break
+            if isinstance(spec, ProgramInvocation):
+                # Flavor-B sub-program yields aren't materialised in the
+                # outer call-site grammar; skip with an empty send.
+                sent = None
+                continue
+            if not isinstance(spec, Gen):
+                # Verifier yields, etc. — pass through.
+                sent = None
+                continue
+            if idx >= len(parsed_args):
+                return f"yield #{idx} has no parsed value to check"
+            value = parsed_args[idx]
+            err = _check_value_against_spec(spec, value, idx)
+            if err is not None:
+                return err
+            sent = value
+            idx += 1
+        return None
 
     def _handle_make_new_program(self, args_text: str) -> list[Event]:
         """The bootstrap: switch grammars, sample source, register, continue."""

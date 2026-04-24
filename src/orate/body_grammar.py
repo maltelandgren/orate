@@ -224,12 +224,25 @@ def _extract_yields(fn: ast.FunctionDef) -> list[ast.Call]:
 
     The body shape we accept is exactly the one admitted by
     ``PROGRAM_SOURCE_GRAMMAR``: a sequence of ``Assign(Name = Yield(Call))``
-    followed by a single ``Return``. Anything else raises.
+    followed by a single ``Return``. A leading docstring is permitted
+    (and skipped) so hand-authored programs can document themselves.
     """
     if not fn.body:
         raise BodyGrammarError(f"function {fn.name!r} has an empty body")
 
-    *assigns, last = fn.body
+    body = list(fn.body)
+    # Skip a leading docstring if present.
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
+        body = body[1:]
+    if not body:
+        raise BodyGrammarError(f"function {fn.name!r}: body is empty after docstring")
+
+    *assigns, last = body
     if not isinstance(last, ast.Return):
         raise BodyGrammarError(
             f"function {fn.name!r}: last statement must be `return`; got {type(last).__name__}"
@@ -287,32 +300,38 @@ def _check_straight_line_assign(fn_name: str, stmt: ast.stmt, index: int) -> ast
 
 
 def _check_no_disallowed_nodes(fn: ast.FunctionDef) -> None:
-    for node in ast.walk(fn):
-        if node is fn:
-            continue
-        if isinstance(
-            node,
-            ast.If
-            | ast.For
-            | ast.AsyncFor
-            | ast.While
-            | ast.Try
-            | ast.With
-            | ast.AsyncWith
-            | ast.Match
-            | ast.FunctionDef
-            | ast.AsyncFunctionDef
-            | ast.ClassDef
-            | ast.Lambda,
-        ):
-            raise BodyGrammarError(
-                f"{fn.name}: {type(node).__name__} is not supported in a "
-                "body-grammar-derivable program (straight-line yields only)"
-            )
-        if isinstance(node, ast.YieldFrom):
-            raise BodyGrammarError(
-                f"{fn.name}: `yield from` is not supported in a body-grammar-derivable program"
-            )
+    """Reject control-flow / nested function defs at the body level.
+
+    We DON'T descend into kwarg values (so a ``where=lambda ...``
+    survives) — only the top-level statement shape is constrained.
+    Validation of model-authored sources is the separate, stricter
+    pass in :func:`orate.meta.validate_program_source`.
+    """
+    for stmt in fn.body:
+        for node in ast.walk(stmt):
+            if isinstance(
+                node,
+                ast.If
+                | ast.For
+                | ast.AsyncFor
+                | ast.While
+                | ast.Try
+                | ast.With
+                | ast.AsyncWith
+                | ast.Match
+                | ast.FunctionDef
+                | ast.AsyncFunctionDef
+                | ast.ClassDef,
+            ):
+                raise BodyGrammarError(
+                    f"{fn.name}: {type(node).__name__} is not supported in a "
+                    "body-grammar-derivable program (straight-line yields only)"
+                )
+            if isinstance(node, ast.YieldFrom):
+                raise BodyGrammarError(
+                    f"{fn.name}: `yield from` is not supported in a "
+                    "body-grammar-derivable program"
+                )
 
 
 # ---- per-yield fragment builder ------------------------------------
@@ -351,10 +370,16 @@ class _RuleBuilder:
     # -- gen.choice --------------------------------------------------
 
     def _fragment_choice(self, call: ast.Call, index: int) -> str:
-        if call.keywords:
-            raise BodyGrammarError(
-                f"{self.program_name}: yield #{index} gen.choice takes no keyword arguments"
-            )
+        # ``where`` and ``description`` are runtime-only — they shape
+        # predicate enforcement and prompt rendering but don't change
+        # the call-site grammar. Silently accept them; reject anything
+        # else.
+        for kw in call.keywords:
+            if kw.arg not in ("where", "description"):
+                raise BodyGrammarError(
+                    f"{self.program_name}: yield #{index} gen.choice got unexpected "
+                    f"kwarg {kw.arg!r} (only 'where' and 'description' are allowed)"
+                )
         if len(call.args) != 1:
             raise BodyGrammarError(
                 f"{self.program_name}: yield #{index} gen.choice takes exactly one list literal"
@@ -382,10 +407,12 @@ class _RuleBuilder:
     # -- gen.integer -------------------------------------------------
 
     def _fragment_integer(self, call: ast.Call, index: int) -> str:
-        if call.keywords:
-            raise BodyGrammarError(
-                f"{self.program_name}: yield #{index} gen.integer takes no keyword arguments"
-            )
+        for kw in call.keywords:
+            if kw.arg not in ("where", "description"):
+                raise BodyGrammarError(
+                    f"{self.program_name}: yield #{index} gen.integer got unexpected "
+                    f"kwarg {kw.arg!r} (only 'where' and 'description' are allowed)"
+                )
         if len(call.args) != 2:
             raise BodyGrammarError(
                 f"{self.program_name}: yield #{index} gen.integer needs two int literal bounds"
@@ -422,6 +449,9 @@ class _RuleBuilder:
                         "must be a string literal"
                     )
                 pattern = kw.value.value
+            elif kw.arg in ("where", "description", "max_retries", "reject_message"):
+                # runtime-only metadata; doesn't shape the grammar.
+                continue
             else:
                 raise BodyGrammarError(
                     f"{self.program_name}: yield #{index} gen.string got unexpected kwarg "
@@ -448,10 +478,16 @@ class _RuleBuilder:
     # -- gen.boolean -------------------------------------------------
 
     def _fragment_boolean(self, call: ast.Call, index: int) -> str:
-        if call.args or call.keywords:
+        if call.args:
             raise BodyGrammarError(
-                f"{self.program_name}: yield #{index} gen.boolean takes no arguments"
+                f"{self.program_name}: yield #{index} gen.boolean takes no positional arguments"
             )
+        for kw in call.keywords:
+            if kw.arg not in ("where", "description"):
+                raise BodyGrammarError(
+                    f"{self.program_name}: yield #{index} gen.boolean got unexpected "
+                    f"kwarg {kw.arg!r}"
+                )
         return '("true" | "false")'
 
     # -- helpers -----------------------------------------------------
