@@ -280,6 +280,24 @@ class XGrammarEngine:
         """
         return {name: spec.dispatch(self) for name, spec in fields.items()}
 
+    def sample_grammar(self, grammar: str, *, max_tokens: int | None = None) -> str:
+        """Sample decoded text under an arbitrary GBNF grammar.
+
+        Exposes the internal sampling loop for meta-programming: a
+        user-supplied grammar (e.g. orate.meta.PROGRAM_SOURCE_GRAMMAR)
+        is compiled into an FSM, the model runs masked argmax decoding
+        to termination, and the decoded text is returned. The caller
+        is responsible for parsing/validating the result.
+        """
+        if max_tokens is not None:
+            prior = self.max_tokens_per_sample
+            self.max_tokens_per_sample = max_tokens
+            try:
+                return self._sample_with_grammar(grammar)
+            finally:
+                self.max_tokens_per_sample = prior
+        return self._sample_with_grammar(grammar)
+
     # ---- the grammar-constrained sampling loop ----------------------
 
     def _sample_with_grammar(self, grammar: str) -> str:

@@ -57,3 +57,17 @@ class SupportsContext(Protocol):
     """
 
     def inject_context(self, text: str) -> None: ...
+
+
+@runtime_checkable
+class SupportsGrammar(Protocol):
+    """Optional capability: sample decoded text under an arbitrary GBNF grammar.
+
+    This is the Act-4 / meta-programming hook. The engine is handed a
+    user-supplied grammar string (e.g. the PROGRAM_SOURCE_GRAMMAR from
+    orate.meta) and returns the decoded text produced under that
+    grammar's mask. XGrammar-backed engines implement this natively;
+    MockEngine returns a canned string for testing.
+    """
+
+    def sample_grammar(self, grammar: str, *, max_tokens: int | None = None) -> str: ...

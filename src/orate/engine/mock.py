@@ -17,8 +17,10 @@ class MockEngine:
     """
 
     seed: int = 0
+    canned_grammar_source: str | None = None
     _rng: random.Random = field(init=False, repr=False)
     _context: list[str] = field(init=False, default_factory=list)
+    _sample_grammar_calls: list[str] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
         self._rng = random.Random(self.seed)
@@ -66,3 +68,19 @@ class MockEngine:
 
     def inject_context(self, text: str) -> None:
         self._context.append(text)
+
+    def sample_grammar(self, grammar: str, *, max_tokens: int | None = None) -> str:  # noqa: ARG002
+        """Return a canned source string, ignoring the grammar.
+
+        MockEngine can't parse GBNF or run a decoder — it's a test
+        double. Tests that exercise the meta-programming orchestrator
+        pass a valid @program source via ``canned_grammar_source`` at
+        construction time; this method returns it verbatim and records
+        the call for later assertion.
+        """
+        self._sample_grammar_calls.append(grammar)
+        if self.canned_grammar_source is None:
+            raise RuntimeError(
+                "MockEngine.sample_grammar called with no canned_grammar_source set"
+            )
+        return self.canned_grammar_source
