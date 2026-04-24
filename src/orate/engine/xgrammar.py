@@ -117,8 +117,14 @@ class XGrammarEngine:
     _prompt_tokens: list[int] = field(default_factory=list, init=False, repr=False)
     _prime_text: str | None = field(default=None, init=False, repr=False)
 
-    # Session state
+    # Stateless (one-shot) mode: context notes accumulate here and are
+    # re-prepended on each sample. Legacy API.
     _context: list[str] = field(default_factory=list, init=False, repr=False)
+
+    # Persistent-KV (session) mode: begin_session() primes once, then
+    # every append / sample_under extends the KV in place without
+    # re-evaluating the prefix. _session_active flips to True.
+    _session_active: bool = field(default=False, init=False, repr=False)
 
     # ---- load / prime ------------------------------------------------
 
@@ -189,11 +195,24 @@ class XGrammarEngine:
     # ---- context injection ------------------------------------------
 
     def inject_context(self, text: str) -> None:
-        """Append a steering note that will prefix the next sample."""
-        self._context.append(text)
+        """Append a steering note.
+
+        In stateless mode (legacy): buffered in _context; re-prepended
+        on every subsequent sample. In session mode: the note is
+        tokenized and appended to the live KV immediately — no buffer,
+        no re-evaluation.
+        """
+        if self._session_active:
+            self.append(f"\n[note: {text}]\n")
+        else:
+            self._context.append(text)
 
     def _full_prefix_tokens(self) -> list[int]:
-        """Tokens to feed before sampling: prompt + accumulated context notes."""
+        """Tokens to feed before sampling: prompt + accumulated context notes.
+
+        Stateless-mode only. Session mode does not re-build the prefix;
+        it extends the KV directly.
+        """
         if not self._context:
             return list(self._prompt_tokens)
         note_blob = "\n" + "\n".join(f"[note: {t}]" for t in self._context) + "\n"
@@ -202,6 +221,67 @@ class XGrammarEngine:
             self._llm.tokenize(note_blob.encode("utf-8"), add_bos=False, special=False)
         )
         return list(self._prompt_tokens) + note_toks
+
+    # ---- session mode: persistent KV, incremental eval ---------------
+
+    def begin_session(self, prompt: str) -> None:
+        """Start a persistent-KV session.
+
+        Resets the KV, tokenizes + evaluates the system prompt once.
+        Subsequent ``append(text)`` and ``sample_under(grammar)`` calls
+        extend the KV in place — no reset, no prefix re-evaluation.
+        Cheap sampling for long conversational sessions.
+
+        Leaves the stateless API (``sample_choice``/``sample_int``/etc.
+        via the existing ``_sample_with_grammar`` path) intact; those
+        callers should not mix with session mode on the same engine
+        instance.
+        """
+        self.load()
+        self._llm.reset()
+        self._prime_text = prompt
+        self._prompt_tokens = list(
+            self._llm.tokenize(prompt.encode("utf-8"), add_bos=True, special=True)
+        )
+        self._llm.eval(self._prompt_tokens)
+        self._session_active = True
+        # Session mode manages its own running context; clear any
+        # stale stateless-mode notes so they don't leak semantics.
+        self._context = []
+
+    def append(self, text: str) -> None:
+        """Tokenize ``text`` and extend the session KV. No grammar, no sampling."""
+        if not self._session_active:
+            raise RuntimeError("append() called outside a session; call begin_session() first")
+        self.load()
+        tokens = list(self._llm.tokenize(text.encode("utf-8"), add_bos=False, special=False))
+        if tokens:
+            self._llm.eval(tokens)
+
+    def sample_under(
+        self,
+        grammar: str,
+        *,
+        max_tokens: int | None = None,
+    ) -> str:
+        """Sample grammar-constrained text extending the session KV.
+
+        Produced tokens remain in the KV — callers can emit more via
+        append() or continue sampling under a different grammar, and
+        every later sample sees this output as part of its context.
+        """
+        if not self._session_active:
+            raise RuntimeError(
+                "sample_under() called outside a session; call begin_session() first"
+            )
+        self.load()
+        import xgrammar  # noqa: PLC0415
+
+        compiled = self._compiler.compile_grammar(grammar)
+        matcher = xgrammar.GrammarMatcher(compiled)
+        limit = max_tokens if max_tokens is not None else self.max_tokens_per_sample
+        produced = self._loop_under_matcher(matcher, limit)
+        return self._llm.detokenize(produced).decode("utf-8", errors="replace")
 
     # ---- public sample methods --------------------------------------
 
@@ -301,15 +381,14 @@ class XGrammarEngine:
     # ---- the grammar-constrained sampling loop ----------------------
 
     def _sample_with_grammar(self, grammar: str) -> str:
-        """Run deterministic argmax decoding under a GBNF constraint.
+        """One-shot (stateless) grammar-constrained decode.
 
-        Returns the decoded text (the grammar-accepted prefix). The
-        matcher terminates when the grammar is exhausted; we stop
-        there. EOS tokens from the model are ignored before the
-        grammar terminates.
+        Resets the KV, re-evaluates prompt + accumulated context notes,
+        and samples under the grammar. Used by the legacy sample_choice
+        / sample_int / sample_string / sample_bool / sample_grammar API.
+        Session-mode callers go through sample_under() instead.
         """
         self.load()
-        import numpy as np  # noqa: PLC0415
         import xgrammar  # noqa: PLC0415
 
         compiled = self._compiler.compile_grammar(grammar)
@@ -320,25 +399,33 @@ class XGrammarEngine:
         prefix = self._full_prefix_tokens()
         self._llm.eval(prefix)
 
+        produced = self._loop_under_matcher(matcher, self.max_tokens_per_sample)
+        text = self._llm.detokenize(produced).decode("utf-8", errors="replace")
+        return text
+
+    def _loop_under_matcher(self, matcher: Any, limit: int) -> list[int]:
+        """Inner sampling loop: argmax over grammar-masked logits.
+
+        Assumes the KV is already in the desired state (caller has
+        either reset + evaluated a prefix, or is in session mode and
+        appending to an existing cache). Each accepted token is
+        eval()ed into the KV so subsequent iterations see it.
+
+        Uses XGrammar's ``find_jump_forward_string`` fast path when the
+        grammar dictates a deterministic continuation — saves 5x
+        Python/C boundary crossings on literal stretches.
+        """
+        import numpy as np  # noqa: PLC0415
+        import torch  # noqa: PLC0415
+        import xgrammar  # noqa: PLC0415
+
         produced: list[int] = []
-        for _ in range(self.max_tokens_per_sample):
+        for _ in range(limit):
             if matcher.is_terminated():
                 break
 
-            # Fast path: the grammar may dictate a deterministic
-            # string from here (e.g. middle of a literal like "blue").
-            # We use accept_string to advance the matcher; we still
-            # need to feed the corresponding tokens through the LLM
-            # to keep its kv cache in sync.
             jump = matcher.find_jump_forward_string()
             if jump:
-                # Tokenize the forced string, but only take tokens
-                # that the matcher accepts — find_jump_forward_string
-                # is best-effort and may span a token boundary
-                # awkwardly. The simplest correct move is to just
-                # accept it and re-tokenize the next step; we also
-                # feed it through the LLM as tokens for kv-cache
-                # consistency.
                 forced_tokens = list(
                     self._llm.tokenize(jump.encode("utf-8"), add_bos=False, special=False)
                 )
@@ -354,29 +441,18 @@ class XGrammarEngine:
                         break
                 if accepted_any:
                     continue
-                # fall through to masked sampling if nothing stuck
 
-            # Mask logits and argmax.
             matcher.fill_next_token_bitmask(self._bitmask)
             logits_ptr = self._llm._ctx.get_logits_ith(-1)
             logits = np.ctypeslib.as_array(logits_ptr, shape=(self._vocab_size,))
-            # Work on a torch view so we can reuse xgrammar's inplace
-            # apply without writing our own mask arithmetic.
-            import torch  # noqa: PLC0415
-
             logits_t = torch.from_numpy(logits).clone().unsqueeze(0)
             xgrammar.apply_token_bitmask_inplace(logits_t, self._bitmask)
             tid = int(logits_t[0].argmax().item())
 
             if not matcher.accept_token(tid):
-                # This means argmax produced the stop token before the
-                # grammar was satisfied — treat as termination.
                 break
 
             self._llm.eval([tid])
             produced.append(tid)
 
-        # Decode; stop-token bytes won't appear because they're masked
-        # while matcher is live and we break when it terminates.
-        text = self._llm.detokenize(produced).decode("utf-8", errors="replace")
-        return text
+        return produced

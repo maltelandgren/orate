@@ -44,6 +44,7 @@ class ProgramInvocation:
     kwargs: dict
     whole_program_retries: int = 0
     reject_message: Callable[[int, BaseException], str] | str | None = None
+    ends_turn: bool = False
     trace: list[dict] = field(default_factory=list)
 
     def _run_once(self, engine: Engine) -> Any:
@@ -54,12 +55,22 @@ class ProgramInvocation:
                 spec = gen_iter.send(sent) if sent is not None else next(gen_iter)
             except StopIteration as stop:
                 return stop.value
-            if not isinstance(spec, Gen):
+            if isinstance(spec, ProgramInvocation):
+                # Flavor B (minimal): recursively run the sub-program on the
+                # same engine. The inner invocation uses its own
+                # whole_program_retries; its ProgramRejected / GrammarExhausted
+                # propagate up to the outer's Phase-C loop only if the inner
+                # exhausts its own retries.
+                sent = spec.run(engine=engine)
+            elif isinstance(spec, Gen):
+                sent = spec.dispatch(engine)
+            else:
                 raise TypeError(
-                    f"@program body yielded non-Gen value {spec!r}; "
-                    f"use gen.choice(...) / gen.integer(...) / gen.tool(...) / etc."
+                    f"@program body yielded non-Gen, non-ProgramInvocation "
+                    f"value {spec!r}; yield a Gen "
+                    f"(gen.choice(...) / gen.integer(...) / gen.tool(...) / etc.) "
+                    f"or another @program invocation."
                 )
-            sent = spec.dispatch(engine)
 
     def run(self, *, engine: Engine) -> Any:
         """Run the program. On Phase-C-eligible failure, rewind and retry."""
@@ -101,6 +112,7 @@ def program(
     *,
     whole_program_retries: int = 0,
     reject_message: Callable[[int, BaseException], str] | str | None = None,
+    ends_turn: bool = False,
 ) -> Any:
     """Decorator: turn a generator function into a runnable program.
 
@@ -114,6 +126,11 @@ def program(
 
     The decorated function returns a ProgramInvocation; call `.run(engine=...)`
     to execute. The generator is driven one yield at a time against the engine.
+
+    ``ends_turn`` is metadata only at the @program runner level — it is not
+    read or acted on here. A future Session runner inspects
+    ``invocation.ends_turn`` to decide whether completing this invocation
+    should end the agent turn.
     """
 
     def decorate(fn_: Callable[..., Iterator[Gen]]) -> Callable[..., ProgramInvocation]:
@@ -124,6 +141,7 @@ def program(
                 kwargs=kwargs,
                 whole_program_retries=whole_program_retries,
                 reject_message=reject_message,
+                ends_turn=ends_turn,
             )
 
         wrapper.__wrapped__ = fn_  # type: ignore[attr-defined]

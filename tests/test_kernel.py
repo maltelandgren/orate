@@ -56,5 +56,5 @@ def test_non_gen_yield_raises():
         x = yield 42  # not a Gen instance
         return x
 
-    with pytest.raises(TypeError, match="yielded non-Gen value"):
+    with pytest.raises(TypeError, match="yielded non-Gen"):
         bad_program().run(engine=MockEngine(seed=0))

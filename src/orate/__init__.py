@@ -1,4 +1,5 @@
 from orate import gen
+from orate.body_grammar import BodyGrammarError, derive_body_grammar
 from orate.gen import GrammarExhausted
 from orate.meta import (
     PROGRAM_SOURCE_GRAMMAR,
@@ -16,6 +17,7 @@ from orate.verify import Accept, Reject, VerifierCall, verifier
 __all__ = [
     "PROGRAM_SOURCE_GRAMMAR",
     "Accept",
+    "BodyGrammarError",
     "GrammarExhausted",
     "MetaProgramInvalid",
     "MetaResult",
@@ -25,6 +27,7 @@ __all__ = [
     "VerifierCall",
     "build_prompt",
     "compile_program_source",
+    "derive_body_grammar",
     "gen",
     "meta_solve",
     "program",
