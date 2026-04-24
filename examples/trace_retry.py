@@ -42,15 +42,15 @@ class TracingXGrammarEngine(XGrammarEngine):
 
         print()
         print("=" * 72)
-        print(f"SAMPLE #{n}  — engine.sample_int({min_val}, {max_val}, excluded={sorted(excluded)})")
+        print(
+            f"SAMPLE #{n}  — engine.sample_int({min_val}, {max_val}, excluded={sorted(excluded)})"
+        )
         print("=" * 72)
 
         # Show the exact prompt bytes fed into the model.
-        full_prompt = (self._prime_text or "")
+        full_prompt = self._prime_text or ""
         if self._context:
-            full_prompt += (
-                "\n" + "\n".join(f"[note: {t}]" for t in self._context) + "\n"
-            )
+            full_prompt += "\n" + "\n".join(f"[note: {t}]" for t in self._context) + "\n"
         print("PROMPT (bytes fed through llama.cpp on this sample):")
         for line in full_prompt.rstrip().split("\n"):
             print(f"  | {line}")
@@ -119,8 +119,7 @@ def main() -> None:
     # propose its favorite numbers first, each gets rejected, the
     # grammar tightens, and we watch convergence.
     engine.prime(
-        "Pick any two-digit-or-less whole number from 1 to 20. "
-        "Return only the number.\n\nA: "
+        "Pick any two-digit-or-less whole number from 1 to 20. Return only the number.\n\nA: "
     )
 
     result = pick_17().run(engine=engine)

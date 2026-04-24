@@ -526,22 +526,28 @@ from dataclasses import dataclass, field  # noqa: E402
 SYNTHESIS_INSTRUCTIONS = """\
 You write an orate @program that captures the task below.
 
-Rules (ENFORCED by the grammar — the tokens you output are constrained):
-- Start with `@program` on its own line, then `def <name>():` on the next.
-- Use 4-space indentation for every body line.
-- Each body line is either `<var> = yield gen.<method>(<args>)` or `return <expr>`.
+Here is an example of the exact shape you must produce:
+
+@program
+def guess():
+    color = yield gen.choice(["red", "blue"])
+    n = yield gen.integer(1, 10)
+    return {{"color": color, "n": n}}
+
+Rules (enforced by the grammar — bad tokens are masked out):
+- Start with `@program` then `def <name>():` on the next line.
+- Exactly 1-6 `<var> = yield gen.<method>(<args>)` lines, then one `return`.
+- Unique variable names per yield (don't reuse names — you can't read them).
 - Allowed methods: gen.integer(lo, hi), gen.choice(["a", "b", ...]),
   gen.string(max_len=N), gen.boolean().
-- Return either a single identifier OR a dict whose keys are string
-  literals and whose values are identifiers bound earlier in the body.
-- Identifiers are lowercase ASCII; string literals are double-quoted
-  with no escapes.
-- No imports, no control flow (no if/for/while), no arbitrary calls.
+- Return a dict whose keys are string literals and values are the
+  variables you bound above. ONE variable per piece of data in the task.
+- Be MINIMAL — one yield per piece of data. Do not repeat yields.
 
 Task:
 {task}
 
-Write exactly the @program source. Nothing else.
+Write the @program source and stop. No prose, no backticks.
 """
 
 
@@ -616,10 +622,12 @@ def synthesize_program(
                 f"Fix the issue and rewrite the @program.)"
             )
 
-    raise MetaProgramInvalid(
+    err = MetaProgramInvalid(
         f"synthesis failed after {max_retries + 1} attempts. "
         f"last errors: {'; '.join(last_errors) or 'unknown'}"
     )
+    err.trace = trace  # type: ignore[attr-defined]
+    raise err
 
 
 def meta_solve(
