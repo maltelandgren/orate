@@ -24,7 +24,7 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
-from legal_steps.algebra import algebra_step  # noqa: E402
+from legal_steps.algebra import algebra_step, done  # noqa: E402
 from orate import (  # noqa: E402
     FreeText,
     NewProgramRegistered,
@@ -48,38 +48,42 @@ def _pick_model() -> str:
 
 
 SYSTEM = """\
-You output ONLY @algebra_step calls. No markdown, no prose, no code
-fences, no commentary. Each call is on its own line, no blank lines.
+You output ONLY @algebra_step calls. No markdown, no prose, no
+commentary. Exact syntax:
 
-Exact syntax (every character matters):
+@algebra_step("before", rule, "after")
 
-@algebra_step("equation_before", "rule_name", "equation_after")
+`before` and `after` are JSON-quoted equation strings. `rule` is a
+bare identifier. The runtime verifies algebraic equivalence —
+including scalar multiplication, so 2x = 8 ↔ x = 4 is legal.
 
-The runtime mathematically verifies that "equation_after" equals
-"equation_before" under "rule_name". If not, the call is rejected.
+Rules:
+  simplify     — distribute, combine numeric terms
+  combine_like — collect terms with the same variable
+  isolate_var  — produce an equation whose LHS is a single variable
+  evaluate     — produce an equation with a pure number on one side
 
-Allowed rule_name values: substitute, simplify, combine_like,
-isolate_var, evaluate.
+CRITICAL — applying a known fact:
+  When you reuse a fact from a previous step (like "x = 5 - y"),
+  bake the substitution INTO `before` directly. The runtime is
+  stateless — it does not remember prior facts.
 
-Worked example (this is the literal format):
+When the unknown is solved, emit @done("x = N") to end the turn.
 
-@algebra_step("x + y = 5", "isolate_var", "x = 5 - y")
-@algebra_step("2(5 - y) + 3y = 12", "simplify", "10 + y = 12")
-@algebra_step("10 + y = 12", "isolate_var", "y = 2")
-@algebra_step("x = 5 - 2", "evaluate", "x = 3")
+Worked example — solve 2x + 1 = 7:
 
-Each "before" should be the previous "after" or one of the
-original equations. Stop when both unknowns are numbers.
+@algebra_step("2x + 1 = 7", simplify, "2x = 6")
+@algebra_step("2x = 6", isolate_var, "x = 3")
+@done("x = 3")
 """
 
 
 PROBLEM = """\
-Solve this system for integer x and y. Use @algebra_step calls in
-the exact syntax shown in the system prompt. Output nothing else.
+Solve for x. Use @algebra_step calls in the exact syntax from the
+system prompt. Output nothing else.
 
-Equations:
-  2x + 3y = 12
-  x + y = 5
+Equation:
+  3x + 5 = 14
 """
 
 
@@ -111,7 +115,7 @@ def main() -> None:
 
     session = Session(
         engine=engine,
-        programs={"algebra_step": algebra_step},
+        programs={"algebra_step": algebra_step, "done": done},
         system=SYSTEM,
         max_turn_tokens=4096,
         max_calls_per_turn=12,

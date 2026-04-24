@@ -79,8 +79,10 @@ def equivalent_under(rule: str, before: str, after: str) -> bool:
 
     *Legal* means:
       1. Both sides parse as equations.
-      2. ``after`` is mathematically equivalent to ``before`` —
-         i.e. ``simplify((lhs1 - rhs1) - (lhs2 - rhs2)) == 0``.
+      2. ``after`` and ``before`` describe the same solution set.
+         This admits both same-form equivalence (``p1 - p2 == 0`` after
+         simplify) and scalar multiplication of either side by a
+         nonzero constant — so ``2x = 8`` ↔ ``x = 4`` counts as legal.
       3. Per-rule sanity:
          - ``evaluate``: ``after``'s RHS (or LHS) must be a pure Number.
          - ``isolate_var``: ``after``'s LHS must be a single Symbol.
@@ -97,8 +99,19 @@ def equivalent_under(rule: str, before: str, after: str) -> bool:
     except (ValueError, SyntaxError, sympy.SympifyError, TypeError):
         return False
 
-    diff = sympy.simplify((lhs1 - rhs1) - (lhs2 - rhs2))
-    if diff != 0:
+    p1 = sympy.simplify(lhs1 - rhs1)
+    p2 = sympy.simplify(lhs2 - rhs2)
+
+    same_polynomial = sympy.simplify(p1 - p2) == 0
+    scalar_multiple = False
+    if not same_polynomial and p2 != 0:
+        try:
+            ratio = sympy.simplify(p1 / p2)
+            scalar_multiple = ratio.is_number and ratio != 0
+        except (sympy.SympifyError, TypeError, ZeroDivisionError):
+            scalar_multiple = False
+
+    if not (same_polynomial or scalar_multiple):
         return False
 
     if rule == "evaluate" and not (lhs2.is_number or rhs2.is_number):

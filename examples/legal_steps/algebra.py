@@ -30,6 +30,20 @@ from orate import gen, program
 from .checkers import equivalent_under
 
 
+@program(ends_turn=True)
+def done():
+    """Signal that the solve is complete and surface the final answer.
+
+    Calling this ends the assistant turn. The Session runner emits a
+    TurnEnded event so the client knows the chain has terminated.
+    """
+    answer = yield gen.string(
+        max_len=40,
+        description="the final answer in form 'var = number' (e.g. 'x = 3')",
+    )
+    return {"answer": answer}
+
+
 @program
 def algebra_step():
     """One legal algebraic transformation: (before, rule, after).
@@ -43,10 +57,9 @@ def algebra_step():
         description="the current equation, e.g. '2x + 3y = 12'",
     )
     rule = yield gen.choice(
-        ["substitute", "simplify", "combine_like", "isolate_var", "evaluate"],
+        ["simplify", "combine_like", "isolate_var", "evaluate"],
         description=(
-            "the algebraic move: substitute / simplify / combine_like / "
-            "isolate_var / evaluate"
+            "the algebraic move: simplify / combine_like / isolate_var / evaluate"
         ),
     )
     after = yield gen.string(

@@ -17,7 +17,7 @@ Run the demos:
     .venv/bin/python examples/legal_steps/logic_demo.py
 """
 
-from .algebra import algebra_step
+from .algebra import algebra_step, done
 from .checkers import (
     ALGEBRA_RULES,
     LOGIC_RULES,
@@ -31,6 +31,7 @@ __all__ = [
     "LOGIC_RULES",
     "algebra_step",
     "derivable_under",
+    "done",
     "equivalent_under",
     "inference_step",
 ]
