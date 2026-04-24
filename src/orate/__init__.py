@@ -3,7 +3,10 @@ from orate.gen import GrammarExhausted
 from orate.meta import (
     PROGRAM_SOURCE_GRAMMAR,
     MetaProgramInvalid,
+    MetaResult,
     compile_program_source,
+    meta_solve,
+    synthesize_program,
     validate_program_source,
 )
 from orate.program import ProgramInvocation, ProgramRejected, program, reject_program
@@ -15,6 +18,7 @@ __all__ = [
     "Accept",
     "GrammarExhausted",
     "MetaProgramInvalid",
+    "MetaResult",
     "ProgramInvocation",
     "ProgramRejected",
     "Reject",
@@ -22,8 +26,10 @@ __all__ = [
     "build_prompt",
     "compile_program_source",
     "gen",
+    "meta_solve",
     "program",
     "reject_program",
+    "synthesize_program",
     "validate_program_source",
     "verifier",
 ]

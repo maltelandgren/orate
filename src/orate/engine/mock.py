@@ -21,6 +21,7 @@ class MockEngine:
     _rng: random.Random = field(init=False, repr=False)
     _context: list[str] = field(init=False, default_factory=list)
     _sample_grammar_calls: list[str] = field(init=False, default_factory=list)
+    _primed_with: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self._rng = random.Random(self.seed)
@@ -69,6 +70,11 @@ class MockEngine:
     def inject_context(self, text: str) -> None:
         self._context.append(text)
 
+    def prime(self, text: str) -> None:  # noqa: ARG002
+        """No-op for tests — XGrammarEngine uses prime() to tokenize a
+        system prompt once; MockEngine has no session to prime."""
+        self._primed_with = text
+
     def sample_grammar(self, grammar: str, *, max_tokens: int | None = None) -> str:  # noqa: ARG002
         """Return a canned source string, ignoring the grammar.
 
@@ -80,7 +86,5 @@ class MockEngine:
         """
         self._sample_grammar_calls.append(grammar)
         if self.canned_grammar_source is None:
-            raise RuntimeError(
-                "MockEngine.sample_grammar called with no canned_grammar_source set"
-            )
+            raise RuntimeError("MockEngine.sample_grammar called with no canned_grammar_source set")
         return self.canned_grammar_source

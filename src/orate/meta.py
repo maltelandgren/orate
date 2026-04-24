@@ -27,7 +27,10 @@ from orate.program import ProgramInvocation, program
 __all__ = [
     "MetaProgramInvalid",
     "PROGRAM_SOURCE_GRAMMAR",
+    "MetaResult",
     "compile_program_source",
+    "meta_solve",
+    "synthesize_program",
     "validate_program_source",
 ]
 
@@ -108,9 +111,7 @@ _ALLOWED_METHODS = {"choice", "integer", "string", "boolean"}
 _IDENT_MAX_LEN = 20
 _STR_LIT_MAX_LEN = 20
 _INT_LIT_MAX_DIGITS = 6
-_ALLOWED_STR_CHARS = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -"
-)
+_ALLOWED_STR_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -")
 
 
 def validate_program_source(source: str) -> list[str]:
@@ -130,9 +131,7 @@ def validate_program_source(source: str) -> list[str]:
 
     # Top-level: exactly one @program-decorated FunctionDef.
     if len(tree.body) != 1:
-        errors.append(
-            f"module must contain exactly one top-level statement; got {len(tree.body)}"
-        )
+        errors.append(f"module must contain exactly one top-level statement; got {len(tree.body)}")
         return errors
     node = tree.body[0]
     if not isinstance(node, ast.FunctionDef):
@@ -193,7 +192,15 @@ def _validate_decorators(fn: ast.FunctionDef, errors: list[str]) -> None:
 
 def _validate_signature(fn: ast.FunctionDef, errors: list[str]) -> None:
     a = fn.args
-    if a.args or a.posonlyargs or a.kwonlyargs or a.vararg or a.kwarg or a.defaults or a.kw_defaults:
+    if (
+        a.args
+        or a.posonlyargs
+        or a.kwonlyargs
+        or a.vararg
+        or a.kwarg
+        or a.defaults
+        or a.kw_defaults
+    ):
         errors.append("function must have no arguments, *args, or **kwargs")
 
 
@@ -308,9 +315,7 @@ def _check_integer_args(call: ast.Call, index: int, errors: list[str]) -> None:
 
 def _check_string_args(call: ast.Call, index: int, errors: list[str]) -> None:
     if call.args:
-        errors.append(
-            f"statement #{index}: gen.string takes no positional arguments; use max_len="
-        )
+        errors.append(f"statement #{index}: gen.string takes no positional arguments; use max_len=")
     if len(call.keywords) != 1 or call.keywords[0].arg != "max_len":
         errors.append(f"statement #{index}: gen.string requires exactly max_len=<int literal>")
         return
@@ -331,15 +336,13 @@ def _check_str_lit(
 ) -> None:
     if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
         errors.append(
-            f"statement #{index}: {context} must be a string literal; "
-            f"got {type(node).__name__}"
+            f"statement #{index}: {context} must be a string literal; got {type(node).__name__}"
         )
         return
     s = node.value
     if len(s) < 1 or len(s) > _STR_LIT_MAX_LEN:
         errors.append(
-            f"statement #{index}: {context} must be 1-{_STR_LIT_MAX_LEN} chars; "
-            f"got {len(s)}"
+            f"statement #{index}: {context} must be 1-{_STR_LIT_MAX_LEN} chars; got {len(s)}"
         )
     if any(c not in _ALLOWED_STR_CHARS for c in s):
         errors.append(
@@ -355,10 +358,13 @@ def _check_int_lit(
     *,
     context: str,
 ) -> None:
-    if not (isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool)):
+    if not (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, int)
+        and not isinstance(node.value, bool)
+    ):
         errors.append(
-            f"statement #{index}: {context} must be an integer literal; "
-            f"got {type(node).__name__}"
+            f"statement #{index}: {context} must be an integer literal; got {type(node).__name__}"
         )
         return
     value = node.value
@@ -369,8 +375,7 @@ def _check_int_lit(
     digits = str(value)
     if len(digits) > _INT_LIT_MAX_DIGITS:
         errors.append(
-            f"statement #{index}: {context} has {len(digits)} digits; "
-            f"max is {_INT_LIT_MAX_DIGITS}"
+            f"statement #{index}: {context} has {len(digits)} digits; max is {_INT_LIT_MAX_DIGITS}"
         )
 
 
@@ -400,15 +405,11 @@ def _validate_return(
                 _check_str_lit(key, -1, errors, context="return dict key")
         for val in expr.values:
             if not isinstance(val, ast.Name):
-                errors.append(
-                    f"return dict values must be bare names; got {type(val).__name__}"
-                )
+                errors.append(f"return dict values must be bare names; got {type(val).__name__}")
             elif val.id not in bound:
                 errors.append(f"return dict references unbound name {val.id!r}")
         return
-    errors.append(
-        f"return expression must be a name or a dict literal; got {type(expr).__name__}"
-    )
+    errors.append(f"return expression must be a name or a dict literal; got {type(expr).__name__}")
 
 
 def _walk_disallowed(
@@ -433,9 +434,7 @@ def _walk_disallowed(
         elif isinstance(node, ast.Attribute):
             # Only gen.<name> attribute access is permitted.
             if not (isinstance(node.value, ast.Name) and node.value.id == "gen"):
-                errors.append(
-                    "attribute access is only allowed on the `gen` module"
-                )
+                errors.append("attribute access is only allowed on the `gen` module")
         elif isinstance(node, ast.Call):
             fn_node = node.func
             # Allowed call: gen.<method>
@@ -445,9 +444,7 @@ def _walk_disallowed(
                 and fn_node.value.id == "gen"
             ):
                 continue
-            errors.append(
-                f"calls are only allowed to gen.<method>; got {ast.dump(fn_node)}"
-            )
+            errors.append(f"calls are only allowed to gen.<method>; got {ast.dump(fn_node)}")
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             if node.id not in known:
                 errors.append(f"reference to unbound name {node.id!r}")
@@ -471,9 +468,7 @@ def _walk_disallowed(
             # anything nested is disallowed.
             if node is fn:
                 continue
-            errors.append(
-                f"{type(node).__name__} nodes are not allowed in a meta-program"
-            )
+            errors.append(f"{type(node).__name__} nodes are not allowed in a meta-program")
 
 
 # ---- Compiler ------------------------------------------------------------
@@ -519,7 +514,151 @@ def compile_program_source(source: str) -> Callable[..., ProgramInvocation]:
 
     compiled = sandbox_locals.get(fn_name) or sandbox_globals.get(fn_name)
     if compiled is None or not callable(compiled):
-        raise MetaProgramInvalid(
-            f"compiled module does not expose callable {fn_name!r}"
-        )
+        raise MetaProgramInvalid(f"compiled module does not expose callable {fn_name!r}")
     return compiled
+
+
+# ---- Orchestrator: synthesize-then-invoke (the Act-4 self-referential loop)
+
+
+from dataclasses import dataclass, field  # noqa: E402
+
+SYNTHESIS_INSTRUCTIONS = """\
+You write an orate @program that captures the task below.
+
+Rules (ENFORCED by the grammar — the tokens you output are constrained):
+- Start with `@program` on its own line, then `def <name>():` on the next.
+- Use 4-space indentation for every body line.
+- Each body line is either `<var> = yield gen.<method>(<args>)` or `return <expr>`.
+- Allowed methods: gen.integer(lo, hi), gen.choice(["a", "b", ...]),
+  gen.string(max_len=N), gen.boolean().
+- Return either a single identifier OR a dict whose keys are string
+  literals and whose values are identifiers bound earlier in the body.
+- Identifiers are lowercase ASCII; string literals are double-quoted
+  with no escapes.
+- No imports, no control flow (no if/for/while), no arbitrary calls.
+
+Task:
+{task}
+
+Write exactly the @program source. Nothing else.
+"""
+
+
+@dataclass
+class MetaResult:
+    """Outcome of a meta-programming run.
+
+    ``source`` is the exact bytes the engine emitted; ``value`` is what
+    the compiled @program returned when run. ``synthesis_attempts`` is
+    how many times we had to re-sample before validation passed.
+    """
+
+    source: str
+    value: Any
+    synthesis_attempts: int
+    trace: list[dict] = field(default_factory=list)
+
+
+def synthesize_program(
+    engine: Any,
+    *,
+    task: str,
+    max_retries: int = 3,
+    grammar: str = PROGRAM_SOURCE_GRAMMAR,
+    instructions: str = SYNTHESIS_INSTRUCTIONS,
+    max_tokens: int | None = 512,
+) -> tuple[Callable[..., ProgramInvocation], str, list[dict]]:
+    """Ask the engine to author a @program source, validate, compile, return.
+
+    Three-tier correctness:
+      1. grammar mask (enforced by the engine's ``sample_grammar``)
+      2. AST validator (``validate_program_source``)
+      3. sandbox exec (``compile_program_source``)
+
+    On validator / compile failure, ``inject_context`` feeds the error
+    back and the engine re-samples up to ``max_retries`` times.
+
+    Returns ``(compiled_fn, source, trace)``. ``compiled_fn`` is a
+    normal ``@program`` callable — invoke it (no args) to get a
+    ``ProgramInvocation``, then ``.run(engine=...)``.
+    """
+    if not hasattr(engine, "sample_grammar"):
+        raise TypeError(
+            f"engine {type(engine).__name__} does not implement sample_grammar "
+            "(needed for grammar-constrained source synthesis)"
+        )
+
+    engine.prime(instructions.format(task=task))
+
+    trace: list[dict] = []
+    last_errors: list[str] = []
+    for attempt in range(max_retries + 1):
+        source = engine.sample_grammar(grammar, max_tokens=max_tokens)
+        errors = validate_program_source(source)
+        entry: dict[str, Any] = {"attempt": attempt, "source": source, "errors": errors}
+        if not errors:
+            try:
+                compiled = compile_program_source(source)
+                entry["status"] = "accepted"
+                trace.append(entry)
+                return compiled, source, trace
+            except MetaProgramInvalid as e:
+                errors = [f"compile failed: {e}"]
+                entry["errors"] = errors
+        entry["status"] = "rejected"
+        trace.append(entry)
+        last_errors = errors
+        if attempt < max_retries and hasattr(engine, "inject_context"):
+            summary = "; ".join(errors[:3])
+            engine.inject_context(
+                f"(previous synthesis was rejected: {summary}. "
+                f"Fix the issue and rewrite the @program.)"
+            )
+
+    raise MetaProgramInvalid(
+        f"synthesis failed after {max_retries + 1} attempts. "
+        f"last errors: {'; '.join(last_errors) or 'unknown'}"
+    )
+
+
+def meta_solve(
+    engine: Any,
+    *,
+    task: str,
+    max_retries: int = 3,
+) -> MetaResult:
+    """The full self-referential loop:
+
+    1. engine writes a @program (grammar-constrained source synthesis)
+    2. we validate + compile it
+    3. the same engine runs the compiled program — now constrained by
+       the schema it just authored
+
+    The first phase fixes what the model plans to produce. The second
+    phase produces it under that plan. Both phases use the same
+    engine, so the model's second-phase argmax is shaped by the
+    first-phase grammar it itself wrote.
+    """
+    compiled_fn, source, synth_trace = synthesize_program(
+        engine, task=task, max_retries=max_retries
+    )
+    # Re-prime with the task + source so the model's phase-2 argmax has
+    # full context. The same session's inject_context notes from phase-1
+    # retries are preserved — a nice side-effect: the model sees why
+    # earlier drafts were rejected when it fills its own schema.
+    engine.prime(
+        f"You previously authored this program:\n\n"
+        f"```python\n{source}\n```\n\n"
+        f"Task:\n{task}\n\n"
+        f"Now produce the values. Respond with only the values "
+        f"in the order the yields request them.\n"
+    )
+    invocation = compiled_fn()
+    value = invocation.run(engine=engine)
+    return MetaResult(
+        source=source,
+        value=value,
+        synthesis_attempts=len(synth_trace),
+        trace=synth_trace,
+    )
