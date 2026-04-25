@@ -88,6 +88,7 @@ class _RegistryEntry:
     fn: Callable[..., ProgramInvocation]
     body_grammar_rules: dict[str, str]  # name → body-rule text (includes helpers)
     root_rule_name: str  # e.g. "foo_body"
+    body_grammar: str = ""  # self-contained GBNF for this leaf's body alone
     ends_turn: bool = False
     mode_transition: str | None = None
     # ``mode`` controls visibility: a program is callable only when the
@@ -100,14 +101,26 @@ class _RegistryEntry:
     arg_types: list[ArgType] = field(default_factory=list)
 
 
-# One-unit outer grammar: either a free-text chunk (no '@') or exactly one
-# @call. Session.advance() runs this in a loop, processing each chunk.
+# Outer grammar is just a prefix-alternation: ``"@a(" | "@b(" | ...``,
+# optionally with a free-text alternative. Each leaf's actual body
+# grammar is compiled separately and stored on its _RegistryEntry; the
+# Session driver invokes ``engine.sample_under(entry.body_grammar)`` as
+# a *second* sample call after the outer matcher accepts on a prefix.
 #
-# Rationale: sampling the full (text | call)* in ONE matcher run requires
-# introspecting grammar state mid-stream to detect call completions. One
-# unit per sample is simpler and lets the runtime hook cleanly between
-# units to register new programs, rebuild the grammar, and emit events.
-_MAX_TEXT_CHUNK = 240
+# This is how ``make_new_program`` already works (one sample for the
+# args, then a separate sample under PROGRAM_SOURCE_GRAMMAR for the
+# synthesised source). Generalising that pattern to every leaf gives us:
+#   - small, self-contained grammars per leaf
+#   - the outer grammar is a thin alternation of prefixes; cheap to
+#     recompile when the registry mutates (e.g. make_new_program adds a
+#     leaf, or a mode switch changes which subset is visible)
+#   - no cross-leaf inlining; one leaf's grammar can't accidentally
+#     interfere with another's
+#
+# The trade-off is a tiny bit of driver complexity in advance(): on a
+# prefix accept, we read the program name from the chunk, look up its
+# body grammar, sample it, then synthesise the closing ``)``. See
+# ``Session.advance`` for the loop.
 
 
 def _build_outer_grammar(
@@ -115,69 +128,44 @@ def _build_outer_grammar(
     *,
     allow_free_text: bool = True,
 ) -> str:
-    """One-unit outer grammar admitting text OR one @call.
+    """Prefix-alternation outer grammar.
 
-    Every registered program contributes:
-      1. A top-level alternative in `at_call` that invokes its body rule.
-      2. Its body rule + helpers (namespaced under the program name).
+    For each visible leaf ``foo``, contributes a single alternative
+    ``"@foo("`` to the root. The matcher accepts the moment a full
+    prefix has been consumed; the body is sampled separately under
+    ``entry.body_grammar``.
 
-    When ``allow_free_text=False``, the outer grammar is just ``at_call``
-    — the model can ONLY emit tool calls. Useful for tool-strict sessions
-    (e.g. legal-step demos) where any prose at all derails the trace.
-    The Session driver still inserts a ``"\\n"`` separator between
-    successive calls so they stay readable in the KV.
-
-    The grammar is regenerated each time the registry or active mode
-    changes.
+    When ``allow_free_text=False`` the outer admits only prefixes —
+    the model's every emission is a tool call. Defaults to True for
+    narrative-style sessions; legal-step / agent-strict demos pass
+    False.
     """
-    at_call_alts: list[str] = []
-    all_body_rules: list[str] = []
-
-    seen_rules: set[str] = set()
-    for name, entry in registry.items():
-        at_call_alts.append(f'"@{name}(" {entry.root_rule_name} ")"')
-        # derive_body_grammar_rules returns {rule_name: "rule_name ::= body"}
-        # already in full GBNF form. Dedupe by rule name in case two programs
-        # happen to share a helper rule (the per-program prefix usually makes
-        # this rare, but integer helpers for equivalent ranges can collide).
-        for rule_name, full_rule in entry.body_grammar_rules.items():
-            if rule_name in seen_rules:
-                continue
-            seen_rules.add(rule_name)
-            all_body_rules.append(full_rule)
-
-    if not at_call_alts:
+    if not registry:
         raise RuntimeError("Session has empty registry — at least one program required")
 
+    prefix_alts = " | ".join(f'"@{name}("' for name in registry)
+
     if not allow_free_text:
-        header = [
-            "root ::= at_call",
-            f"at_call ::= {' | '.join(at_call_alts)}",
-        ]
-        return "\n".join(header + all_body_rules) + "\n"
+        return f"root ::= {prefix_alts}\n"
 
-    # text_chunk: 1..MAX printable non-'@' chars. Bounded so the grammar
-    # yields control back per-unit. The Session driver loops to produce
-    # longer texts.
-    text_chunk_rule = (
-        "text_chunk ::= text_char (text_char (text_char"
-        + " text_char?" * (_MAX_TEXT_CHUNK - 3)
-        + ")?)?"
-    )
-    # More practical unrolling: GBNF supports '*' via recursion; use that.
-    text_chunk_rule = (
+    text_rules = (
         "text_chunk ::= text_char text_chunk_rest\n"
-        'text_chunk_rest ::= text_char text_chunk_rest | ""'
+        'text_chunk_rest ::= text_char text_chunk_rest | ""\n'
+        "text_char ::= [ !#-?A-~\\t\\n]\n"  # printable ASCII minus '@'
     )
-    text_char_rule = "text_char ::= [ !#-?A-~\\t\\n]"  # printable ASCII minus '@'
+    return f"root ::= text_chunk | {prefix_alts}\n{text_rules}"
 
-    header = [
-        "root ::= text_chunk | at_call",
-        f"at_call ::= {' | '.join(at_call_alts)}",
-        text_chunk_rule,
-        text_char_rule,
-    ]
-    return "\n".join(header + all_body_rules) + "\n"
+
+def _build_body_grammar(entry: _RegistryEntry) -> str:
+    """Self-contained GBNF for one leaf's body.
+
+    Adds a ``root ::= <name>_body`` line on top of the leaf's body
+    rules so the result can be passed directly to
+    ``engine.sample_under``. Each leaf's grammar is compiled once at
+    registration time.
+    """
+    rules = list(entry.body_grammar_rules.values())
+    return f"root ::= {entry.root_rule_name}\n" + "\n".join(rules) + "\n"
 
 
 _CALL_RE = re.compile(r"^@([a-z_][a-z0-9_]*)\((.*)\)\s*$", re.DOTALL)
@@ -413,13 +401,27 @@ class Session:
         *,
         mode: str | None = None,
     ) -> None:
-        """Add a @program to the registry, rebuild the outer grammar.
+        """Add a leaf @program to the registry, rebuild the outer grammar.
 
         ``mode=None`` means the program is visible in every mode (the
         default — appropriate for cross-cutting tools). Pass an explicit
         mode name to scope the program: it becomes callable only when
         ``self._active_mode`` matches.
+
+        The leaf's body grammar is compiled once here and stored on its
+        registry entry. The outer grammar (rebuilt every call) is just
+        the prefix-alternation; it never inlines body rules.
         """
+        # Composers (@program(invocable=False)) don't have a call-site
+        # grammar; they're not registerable. Catch this early with a
+        # clear message rather than letting body_grammar_rules raise.
+        if getattr(fn, "__orate_invocable__", True) is False:
+            raise BodyGrammarError(
+                f"register({name!r}): {getattr(fn, '__name__', fn)!r} is a composer "
+                "(@program(invocable=False)). Composers orchestrate leaves and run "
+                "directly via .run(engine=...); they are not registered into the "
+                "session's outer grammar."
+            )
         rules = derive_body_grammar_rules(fn)  # dict of {rule_name: rule_body}
         try:
             arg_types = derive_call_arg_types(fn)
@@ -446,7 +448,7 @@ class Session:
                 mode_transition = mode_transition or getattr(inv, "mode_transition", None)
             except TypeError:
                 pass  # program takes args; nothing more to learn
-        self.registry[name] = _RegistryEntry(
+        entry = _RegistryEntry(
             name=name,
             fn=fn,
             body_grammar_rules=rules,
@@ -456,6 +458,8 @@ class Session:
             mode=mode,
             arg_types=arg_types,
         )
+        entry.body_grammar = _build_body_grammar(entry)
+        self.registry[name] = entry
         self._rebuild_outer_grammar()
 
     def set_mode(self, mode: str) -> None:
@@ -486,25 +490,31 @@ class Session:
         )
 
     def _register_make_new_program(self) -> None:
-        """Bootstrap: make_new_program is grammar-inlined but dispatched
-        specially by the runtime (source synthesis happens in a sub-sample
-        under PROGRAM_SOURCE_GRAMMAR, not via derive_body_grammar).
+        """Bootstrap: make_new_program is just another leaf for the outer
+        grammar (its prefix appears in the alternation), but its dispatch
+        is special — after parsing the (name, task) body, the runtime
+        runs a separate sample under PROGRAM_SOURCE_GRAMMAR to synthesise
+        the new @program's source.
+
+        From the outer driver's POV, this is identical to any other leaf:
+        sample prefix, then sample body, then ``)``. The "different
+        thing happens" is in ``_dispatch`` where we recognise the
+        program name and run the synthesis path.
         """
-        # make_new_program's call-site grammar: two string literals (name, task).
-        # Rules are in the same "name ::= body" format derive_body_grammar_rules
-        # returns, so _build_outer_grammar can consume them uniformly.
         rules = {
             "make_new_program_body": 'make_new_program_body ::= mnp_str ", " mnp_str',
             "mnp_str": 'mnp_str ::= "\\"" mnp_char+ "\\""',
             "mnp_char": "mnp_char ::= [a-zA-Z0-9 \\-_.]",
         }
-        self.registry["make_new_program"] = _RegistryEntry(
+        entry = _RegistryEntry(
             name="make_new_program",
             fn=lambda: None,  # never invoked via run()
             body_grammar_rules=rules,
             root_rule_name="make_new_program_body",
             ends_turn=False,
         )
+        entry.body_grammar = _build_body_grammar(entry)
+        self.registry["make_new_program"] = entry
 
     # ---- user messages --------------------------------------------------
 
@@ -516,6 +526,21 @@ class Session:
 
     def advance(self) -> Iterator[Event]:
         """Generate one assistant turn until an end condition fires.
+
+        Each loop iteration:
+
+          1. Sample under the outer (prefix-only) grammar. Result is
+             either a free-text chunk or a prefix ``"@<name>("``.
+          2. If text: yield FreeText, continue.
+          3. If prefix: look up the leaf, sample under its body grammar
+             (a separate engine.sample_under call against its own
+             matcher), append the closing ``)``, dispatch the call.
+
+        This is the same shape ``make_new_program`` already used (sample
+        prefix → sample body → run synthesis). Now every leaf works
+        identically: the body grammar is per-leaf and self-contained,
+        the outer grammar is just a thin alternation of prefixes that
+        recompiles cheaply when the registry mutates.
 
         Yields events live — callers can act on them as they arrive.
         """
@@ -537,60 +562,102 @@ class Session:
                     return
                 continue
             no_progress_count = 0
-            tokens_used += len(chunk) // 3  # rough byte→token estimate
+            tokens_used += max(1, len(chunk) // 3)
 
-            if chunk.lstrip().startswith("@"):
-                ev_or_done = self._handle_call(chunk)
-                for ev in ev_or_done:
-                    yield ev
-                    self.transcript.append(ev)
-                    if isinstance(ev, TurnEnded):
-                        return
-                calls_this_turn += 1
-                if calls_this_turn >= self.max_calls_per_turn:
-                    ev = TurnEnded("max_calls")
-                    self.transcript.append(ev)
-                    yield ev
-                    return
-            else:
+            name = self._match_prefix(chunk)
+            if name is None:
+                # Free-text chunk.
                 ev = FreeText(chunk)
                 self.transcript.append(ev)
                 yield ev
+                continue
+
+            # Prefix accepted. Sample the body under that leaf's own
+            # grammar, then close the call with ``)``.
+            entry = self.registry[name]
+            body_text = self.engine.sample_under(
+                entry.body_grammar,
+                max_tokens=min(remaining, 512),
+            )
+            self.engine.append(")")
+            tokens_used += max(1, len(body_text) // 3) + 1
+
+            for ev in self._dispatch(name, body_text):
+                yield ev
+                self.transcript.append(ev)
+                if isinstance(ev, TurnEnded):
+                    return
+            calls_this_turn += 1
+            if calls_this_turn >= self.max_calls_per_turn:
+                ev = TurnEnded("max_calls")
+                self.transcript.append(ev)
+                yield ev
+                return
 
         ev = TurnEnded("budget")
         self.transcript.append(ev)
         yield ev
 
+    def _match_prefix(self, chunk: str) -> str | None:
+        """Return the leaf name if ``chunk`` is a recognised ``@name(`` prefix.
+
+        With ``allow_free_text=True`` the outer grammar's root is
+        ``text_chunk | prefix``; the matcher accepts either. We
+        distinguish by structure: a prefix chunk is exactly
+        ``@<name>(`` for a known leaf. Anything else is free text.
+        """
+        s = chunk.strip()
+        if not (s.startswith("@") and s.endswith("(")):
+            return None
+        name = s[1:-1]
+        if name not in self.registry:
+            return None
+        return name
+
+    # ``_handle_call`` is preserved as a backwards-compat shim: tests
+    # (and maybe external callers) feed in a fully-formed ``@name(args)``
+    # string. We split it into (name, body_text) and delegate.
     def _handle_call(self, raw: str) -> list[Event]:
-        """Process a single @call chunk. Returns the events to yield."""
+        """Process a fully-formed ``@name(args)`` chunk.
+
+        Compatibility helper for tests that simulate model emissions.
+        The advance() loop doesn't go through here — it samples the
+        prefix and body separately and calls ``_dispatch`` directly.
+        """
         try:
-            name, args_text = _parse_at_call(raw)
+            name, body_text = _parse_at_call(raw)
         except ValueError as e:
-            # Malformed — append a note to KV so the model knows, continue.
             self.engine.append(f"\n[session: ignored malformed call: {e}]\n")
             return []
+        return self._dispatch(name, body_text)
 
+    def _dispatch(self, name: str, body_text: str) -> list[Event]:
+        """Run the leaf's post-body logic: parse args, verify, emit events.
+
+        Called after the engine has already produced the @-call's body
+        (under that leaf's body grammar). ``body_text`` is what the
+        body matcher emitted between the ``(`` and the ``)``.
+        """
         if name == "make_new_program":
             if self._consecutive_synth_failures >= self.max_consecutive_synth_failures:
                 self.engine.append("\n[session: too many failed synthesis attempts; ending turn]\n")
                 return [
                     ProgramInvoked(
                         name="make_new_program",
-                        args={"raw": args_text},
+                        args={"raw": body_text},
                         result={"error": "synth_budget_exhausted"},
                     ),
                     TurnEnded("synth_budget_exhausted"),
                 ]
-            return self._handle_make_new_program(args_text)
+            return self._handle_make_new_program(body_text)
 
         if name not in self.registry:
             self.engine.append(f"\n[session: unknown program {name!r}]\n")
             return []
 
         entry = self.registry[name]
-        # Visibility check: a mode-scoped program shouldn't be in the
-        # outer grammar at all when its mode isn't active, but we
-        # double-check defensively in case the grammar leaked.
+        # Visibility check: defensive — the grammar shouldn't expose a
+        # mode-scoped program when its mode isn't active.
         if entry.mode is not None and entry.mode != self._active_mode:
             self.engine.append(
                 f"\n[session: program {name!r} not callable in mode {self._active_mode!r}]\n"
@@ -598,16 +665,13 @@ class Session:
             return []
 
         try:
-            args = self._parse_args(args_text, entry.arg_types)
+            args = self._parse_args(body_text, entry.arg_types)
         except ValueError as e:
             self.engine.append(f"\n[session: arg parse failed for {name}: {e}]\n")
             return []
 
         # Predicate verification: re-run the program body against the
-        # parsed args, checking each yield's where=/options/range. If
-        # the model emitted a syntactically-valid but semantically-bad
-        # call (e.g. a "simplify" that isn't equivalent), reject and
-        # let the model try again on the next sample.
+        # parsed args, checking each yield's where=/options/range.
         verify_error = self._verify_program_emission(entry.fn, args)
         if verify_error is not None:
             self.engine.append(
@@ -621,14 +685,11 @@ class Session:
                 )
             ]
 
-        result = {"emitted_args": args_text, "parsed": args}
+        result = {"emitted_args": body_text, "parsed": args}
         self.engine.append(f" → {_serialize_result(result)}\n")
 
         events: list[Event] = [ProgramInvoked(name=name, args=args, result=result)]
 
-        # Apply mode transition (if any) before deciding whether to end
-        # the turn — a transition + ends_turn together mean "client gets
-        # the args, and the next turn starts in the new mode."
         if entry.mode_transition is not None:
             self.set_mode(entry.mode_transition)
             self.engine.append(
