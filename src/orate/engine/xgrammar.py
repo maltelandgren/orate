@@ -126,6 +126,17 @@ class XGrammarEngine:
     # re-evaluating the prefix. _session_active flips to True.
     _session_active: bool = field(default=False, init=False, repr=False)
 
+    # Compiled-grammar cache, keyed by the GBNF source string. XGrammar's
+    # compile_grammar can be a hundreds-of-milliseconds operation for
+    # non-trivial grammars (e.g. an algebra_step body with max_len=80
+    # strings + helper rules). Sessions reuse the same per-leaf body
+    # grammar across many @-calls; caching kills the recompile cost on
+    # every call after the first. Bounded in practice by the number of
+    # distinct grammars a session uses (one per leaf, plus the outer
+    # prefix grammar that mutates only when the registry changes).
+    _grammar_cache: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
+    _warmed: bool = field(default=False, init=False, repr=False)
+
     # ---- load / prime ------------------------------------------------
 
     def load(self) -> None:
@@ -224,6 +235,46 @@ class XGrammarEngine:
 
     # ---- session mode: persistent KV, incremental eval ---------------
 
+    # ---- grammar compile cache --------------------------------------
+
+    def _compile_or_cached(self, grammar: str) -> Any:
+        """Return a compiled grammar, hitting the per-engine cache.
+
+        Compiled grammars are pure functions of the GBNF source + the
+        tokenizer (which is fixed for the engine's lifetime), so caching
+        by source string is safe and correct. Hit rates are very high
+        in session mode where every @-call to a given leaf reuses that
+        leaf's body grammar verbatim.
+        """
+        cached = self._grammar_cache.get(grammar)
+        if cached is not None:
+            return cached
+        compiled = self._compiler.compile_grammar(grammar)
+        self._grammar_cache[grammar] = compiled
+        return compiled
+
+    def warm(self, grammars: Sequence[str] = ()) -> None:
+        """Pay XGrammar's first-compile JIT cost up front (and pre-cache).
+
+        On the first ``compile_grammar`` call after the engine loads,
+        XGrammar incurs a one-time JIT/setup cost that the bench
+        showed manifests as a 232s outlier on the first
+        ``sample_under`` after a mode switch. Calling ``warm()`` once
+        right after ``load()`` (or implicitly via ``begin_session``)
+        moves that cost to a known place.
+
+        Optionally pass a list of GBNF strings (e.g. each registered
+        leaf's body grammar) to pre-populate the cache so the first
+        sample of each is also instant.
+        """
+        self.load()
+        # Trigger XGrammar's initialisation with a tiny grammar.
+        if not self._warmed:
+            self._compile_or_cached('root ::= "ok"')
+            self._warmed = True
+        for g in grammars:
+            self._compile_or_cached(g)
+
     def begin_session(self, prompt: str) -> None:
         """Start a persistent-KV session.
 
@@ -277,7 +328,7 @@ class XGrammarEngine:
         self.load()
         import xgrammar  # noqa: PLC0415
 
-        compiled = self._compiler.compile_grammar(grammar)
+        compiled = self._compile_or_cached(grammar)
         matcher = xgrammar.GrammarMatcher(compiled)
         limit = max_tokens if max_tokens is not None else self.max_tokens_per_sample
         produced = self._loop_under_matcher(matcher, limit)
@@ -391,7 +442,7 @@ class XGrammarEngine:
         self.load()
         import xgrammar  # noqa: PLC0415
 
-        compiled = self._compiler.compile_grammar(grammar)
+        compiled = self._compile_or_cached(grammar)
         matcher = xgrammar.GrammarMatcher(compiled)
 
         # Seed the kv cache with the prompt + context.

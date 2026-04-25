@@ -391,10 +391,13 @@ def _format_markdown(
         "rejections cost tokens too and are included."
     )
     lines.append(
-        "- **Cold-start outlier.** The very first constrained call after "
-        "a mode switch (e.g. after a free-text run) pays a one-time "
-        "warm-up of ~10× the steady-state per-token cost. Subsequent "
-        "calls in the same session run at the rates reported."
+        "- **Cold-start (historical).** Before the engine grew a "
+        "compiled-grammar cache, the very first constrained call after "
+        "a mode switch paid a ~10× warm-up. The cache (compile by GBNF "
+        "source, warm during ``Session.__init__``) eliminated it; "
+        "constrained calls now run at the steady-state rate from the "
+        "first sample. The 2026-04-25_1132 run shows the old behaviour; "
+        "the 1200 run and later show the cache fix."
     )
     return "\n".join(lines) + "\n"
 
