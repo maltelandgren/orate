@@ -34,6 +34,7 @@ __all__ = [
     "derive_body_grammar",
     "derive_body_grammar_rules",
     "derive_call_arg_types",
+    "scan_typed_args",
 ]
 
 
@@ -141,6 +142,96 @@ def derive_call_arg_types(program_fn: Callable) -> list[ArgType]:
     fn_def = _parse_program_ast(program_fn)
     yields = _extract_yields(fn_def)
     return [_arg_type_for_gen_call(call, idx) for idx, call in enumerate(yields)]
+
+
+def scan_typed_args(text: str, arg_types: list[ArgType]) -> tuple:
+    """Walk ``text`` left-to-right consuming one arg per ArgType.
+
+    Driven by types: each kind has its own scanner that knows when
+    its representation ends. ``", "`` separates args. The grammar
+    emits exactly the shape we expect; no extra whitespace.
+
+    The inverse of :func:`derive_body_grammar_rules` for the kinds
+    we know about — given the text the matcher emitted and the
+    ArgTypes of the program's yields, return the typed Python values
+    those text spans denote.
+
+    Returns a tuple of native Python values matching ``arg_types`` in
+    order. Raises ``ValueError`` on shape mismatch with a position hint.
+    """
+    pos = 0
+    n = len(text)
+    values: list = []
+    for idx, t in enumerate(arg_types):
+        if idx > 0:
+            if text[pos : pos + 2] != ", ":
+                raise ValueError(
+                    f"expected ', ' before arg #{idx} at pos {pos} in {text!r}"
+                )
+            pos += 2
+
+        if t.kind == "integer":
+            start = pos
+            if pos < n and text[pos] == "-":
+                pos += 1
+            digit_start = pos
+            while pos < n and text[pos].isdigit():
+                pos += 1
+            if pos == digit_start:
+                raise ValueError(f"expected digits for arg #{idx} at pos {start}")
+            values.append(int(text[start:pos]))
+        elif t.kind == "boolean":
+            if text.startswith("true", pos):
+                values.append(True)
+                pos += 4
+            elif text.startswith("false", pos):
+                values.append(False)
+                pos += 5
+            else:
+                raise ValueError(f"expected true/false for arg #{idx} at pos {pos}")
+        elif t.kind == "choice":
+            # Choices are emitted bare per the body grammar
+            # ((alt1 | alt2 | ...)). Match the longest option that
+            # starts at pos.
+            matched: str | None = None
+            for opt in sorted(t.options, key=len, reverse=True):
+                if text.startswith(opt, pos):
+                    matched = opt
+                    break
+            if matched is None:
+                raise ValueError(
+                    f"arg #{idx}: expected one of {list(t.options)} at pos {pos}"
+                )
+            values.append(matched)
+            pos += len(matched)
+        elif t.kind == "string":
+            if pos >= n or text[pos] != '"':
+                raise ValueError(
+                    f'expected \'"\' opening quote for arg #{idx} at pos {pos}'
+                )
+            pos += 1  # consume opening quote
+            content_start = pos
+            buf: list[str] = []
+            while pos < n and text[pos] != '"':
+                if text[pos] == "\\" and pos + 1 < n:
+                    nxt = text[pos + 1]
+                    buf.append('"' if nxt == '"' else "\\" if nxt == "\\" else nxt)
+                    pos += 2
+                else:
+                    buf.append(text[pos])
+                    pos += 1
+            if pos >= n:
+                raise ValueError(
+                    f"unterminated string for arg #{idx} starting at pos {content_start}"
+                )
+            pos += 1  # consume closing quote
+            values.append("".join(buf))
+        else:
+            raise ValueError(f"unknown arg kind {t.kind!r} at index {idx}")
+
+    if pos != n:
+        raise ValueError(f"trailing unparsed content at pos {pos} in {text!r}")
+    return tuple(values)
 
 
 def _reject_composer(program_fn: Callable) -> None:

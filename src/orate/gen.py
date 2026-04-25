@@ -292,6 +292,187 @@ class ToolCall(Gen):
         return result
 
 
+@dataclass(frozen=True)
+class Picked:
+    """Result of a :func:`alternative` yield.
+
+    The model chose one of the offered leaf @programs; the runtime
+    sampled its prefix + body, parsed the typed args, and ran the
+    leaf's body to verify predicates and obtain its return value.
+
+    A composer's body branches on ``picked.name`` to react to the
+    model's choice::
+
+        action = yield gen.alternative([narration, diceroll, attack])
+        if action.name == "attack":
+            apply_damage(action.value)
+        elif action.name == "narration":
+            emit(action.value)
+    """
+
+    name: str           # which leaf the model picked
+    args: tuple         # the typed positional args parsed from the body
+    value: Any          # the leaf's return value
+
+
+@dataclass
+class Alternative(Gen):
+    """Yield to the model: pick one of these leaf @programs.
+
+    A composer (``@program(invocable=False)``) uses this primitive to
+    expose a runtime alternation over leaves. The grammar is built
+    fresh on every dispatch — so the alternation can change between
+    yields (e.g. after ``make_new_program`` adds a leaf).
+
+    Dispatch:
+      1. Build a prefix grammar from the leaves' names.
+      2. Sample under it on the engine — the model picks ``@<name>(``.
+      3. Build the picked leaf's body grammar; sample under it; append
+         the closing ``)``.
+      4. Parse the body text into typed args using each leaf's
+         declared yield types.
+      5. Drive the leaf's generator with those args via .send(),
+         enforcing each yield's predicate. The leaf's return value
+         comes back via StopIteration.
+      6. Return :class:`Picked` (name, args, value).
+
+    The transition pattern is identical to what
+    :class:`orate.session.Session` does at the outer-grammar level —
+    just at the composer's scope instead of the session's.
+    """
+
+    programs: tuple = ()  # tuple of leaf @program callables
+
+    def dispatch(self, engine: Engine) -> Picked:
+        from orate.body_grammar import (  # noqa: PLC0415
+            derive_body_grammar_rules,
+            derive_call_arg_types,
+            scan_typed_args,
+        )
+        from orate.program import ProgramInvocation, ProgramRejected  # noqa: PLC0415
+
+        if not self.programs:
+            raise GrammarExhausted("gen.alternative: empty program list")
+
+        # Verify all entries are leaf @programs.
+        for p in self.programs:
+            if getattr(p, "__orate_invocable__", True) is False:
+                raise TypeError(
+                    f"gen.alternative: {getattr(p, '__name__', p)!r} is a "
+                    f"composer; only leaves (invocable=True) are allowed."
+                )
+
+        # 1. Sample prefix.
+        names = [getattr(p, "__name__", repr(p)) for p in self.programs]
+        prefix_grammar = "root ::= " + " | ".join(f'"@{n}("' for n in names) + "\n"
+        prefix = engine.sample_under(prefix_grammar)
+        prefix_clean = prefix.strip()
+        if not (prefix_clean.startswith("@") and prefix_clean.endswith("(")):
+            raise GrammarExhausted(
+                f"gen.alternative: matcher produced unexpected prefix {prefix!r}"
+            )
+        picked_name = prefix_clean[1:-1]
+        leaf = next((p for p in self.programs if getattr(p, "__name__", "") == picked_name), None)
+        if leaf is None:
+            raise GrammarExhausted(
+                f"gen.alternative: model picked unknown @{picked_name}"
+            )
+
+        # 2. Sample body under the picked leaf's grammar.
+        body_rules = derive_body_grammar_rules(leaf)
+        root_rule = f"{picked_name}_body"
+        body_grammar = (
+            f"root ::= {root_rule}\n" + "\n".join(body_rules.values()) + "\n"
+        )
+        body_text = engine.sample_under(body_grammar)
+        engine.append(")")
+
+        # 3. Parse args.
+        try:
+            arg_types = derive_call_arg_types(leaf)
+        except Exception:  # noqa: BLE001
+            arg_types = []
+        args = scan_typed_args(body_text, arg_types) if arg_types else (body_text,)
+
+        # 4. Drive the leaf's generator with parsed args; collect return.
+        try:
+            invocation = leaf()
+        except TypeError:
+            # Leaf takes parameters (rare); we don't have a way to
+            # supply them at the alternative level today. Return Picked
+            # with the parsed args and no return value.
+            return Picked(name=picked_name, args=args, value=None)
+
+        if not isinstance(invocation, ProgramInvocation):
+            return Picked(name=picked_name, args=args, value=None)
+
+        body_iter = invocation.body(*invocation.args, **invocation.kwargs)
+        sent: Any = None
+        idx = 0
+        try:
+            while True:
+                try:
+                    spec = body_iter.send(sent) if sent is not None else next(body_iter)
+                except StopIteration as stop:
+                    return Picked(name=picked_name, args=args, value=stop.value)
+                if isinstance(spec, Gen):
+                    if idx >= len(args):
+                        raise ProgramRejected(f"yield #{idx} has no parsed value")
+                    value = args[idx]
+                    err = _check_value_against_spec(spec, value, idx)
+                    if err is not None:
+                        raise ProgramRejected(err)
+                    sent = value
+                    idx += 1
+                else:
+                    sent = None
+        finally:
+            body_iter.close()
+
+
+def _check_value_against_spec(spec: Gen, value: Any, idx: int) -> str | None:
+    """Verify a parsed value against a Gen spec.
+
+    Same membership / range / predicate checks the Session runner uses
+    on @-call emissions. Returns None on success, or a short error
+    string on failure.
+    """
+    if isinstance(spec, Choice):
+        if value not in spec.options:
+            return f"yield #{idx}: {value!r} is not one of {list(spec.options)!r}"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: choice {value!r} failed where= predicate"
+        return None
+    if isinstance(spec, Int):
+        if not isinstance(value, int) or isinstance(value, bool):
+            return f"yield #{idx}: expected int, got {type(value).__name__}"
+        if value < spec.min_val or value > spec.max_val:
+            return f"yield #{idx}: {value} outside [{spec.min_val}, {spec.max_val}]"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: integer {value} failed where= predicate"
+        return None
+    if isinstance(spec, Bool):
+        if not isinstance(value, bool):
+            return f"yield #{idx}: expected bool, got {type(value).__name__}"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: boolean {value} failed where= predicate"
+        return None
+    if isinstance(spec, String):
+        if not isinstance(value, str):
+            return f"yield #{idx}: expected str, got {type(value).__name__}"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: string {value!r} failed where= predicate"
+        return None
+    return None  # ToolCall and unknown subclasses pass through
+
+
+def _safe_predicate(pred: Callable[[Any], Any], value: Any) -> bool:
+    try:
+        return bool(pred(value))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 # Public constructors — lower-case, keyword-friendly.
 
 
@@ -407,3 +588,28 @@ def tool(
     **args: Any,
 ) -> ToolCall:
     return ToolCall(tool=fn, args=args, description=description)
+
+
+def alternative(programs) -> Alternative:
+    """Yield one of the listed leaf @programs; the model picks via grammar.
+
+    Each program in ``programs`` must be a leaf
+    (``@program(invocable=True)``). On dispatch, the engine samples a
+    prefix-alternation grammar over the leaves' names, then samples
+    the picked leaf's body, then drives the leaf's generator with the
+    parsed args to obtain its return value.
+
+    Returns a :class:`Picked` instance carrying ``name``, ``args``,
+    and ``value`` (the leaf's return value).
+
+    Composer example::
+
+        @program(invocable=False)
+        def dnd():
+            while True:
+                action = yield gen.alternative([narration, diceroll, attack])
+                if action.name == "attack":
+                    apply(action.value)
+                ...
+    """
+    return Alternative(programs=tuple(programs))
