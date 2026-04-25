@@ -108,19 +108,40 @@ Hard cut from simulacrum to a black screen, two lines:
 Cut to a terminal. Problem on screen:
 
 ```
-Find integers x, y such that:
-  2x + 3y = 12
-  x + y   = 5
-  x > y
+Solve for x:
+  3x + 5 = 14
 ```
 
 Voiceover, brisk:
 
-> Multi-step reasoning is where LLMs slip. Free-text model, two runs, same prompt:
+> Multi-step reasoning is where LLMs slip. Same problem to Qwen-7B in
+> free text:
 
-Show two parallel runs. Left run correct; right run has a subtle arithmetic error (e.g., `10 - 2y + 3y → 10 + y = 12 → y = 4`). Red overlay on the wrong line.
+Show free-text run. Model writes a chain of arithmetic, ends with `ANSWER: x = 4`. Red overlay on the answer.
 
-> One correct, one wrong. Same model, same prompt. The math doesn't constrain the tokens.
+> x = 4. Wrong. Plug it back in: 3·4 + 5 = 17, not 14.
+
+Then cut to the constrained run on the same model:
+
+> Now the same model — same weights, same problem — under
+> ``@algebra_step``. The grammar will not emit a (rule, after) pair
+> that fails ``equivalent_under``.
+
+Show the chain:
+```
+@algebra_step("3x + 5 = 14", combine_like, "3x = 9")
+@algebra_step("3x = 9", isolate_var, "x = 3")
+@done("x = 3")
+```
+
+Each step verifies green. Final: x = 3, plug back in: 3·3 + 5 = 14 ✓.
+
+> Across a 7-problem benchmark we ran this morning, free-text Qwen-7B
+> got 4 of 7. Same model under @algebra_step got 6 of 7, with eleven
+> illegal-step attempts caught and rejected en route. Same weights.
+> Different gate.
+
+(Source: [`bench/results/legal_steps_2026-04-25_1132.md`](../bench/results/legal_steps_2026-04-25_1132.md). Decoding is deterministic argmax — these aren't sampling-variance numbers.)
 
 Cut to session mode. Model emits:
 
