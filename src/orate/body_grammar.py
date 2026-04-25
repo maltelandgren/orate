@@ -95,7 +95,13 @@ def derive_body_grammar_rules(program_fn: Callable) -> dict[str, str]:
     Root is always ``<name>_body``; helpers are prefixed with ``<name>_``
     so two programs with the same internal shape don't collide when
     their rules are merged into the outer grammar.
+
+    Raises ``BodyGrammarError`` if ``program_fn`` is decorated as a
+    composer (``@program(invocable=False)``); composers don't have a
+    call-site grammar — they orchestrate leaves at runtime and are
+    never embedded in another program's grammar.
     """
+    _reject_composer(program_fn)
     name = _program_name(program_fn)
     fn_def = _parse_program_ast(program_fn)
     yields = _extract_yields(fn_def)
@@ -127,13 +133,33 @@ def derive_call_arg_types(program_fn: Callable) -> list[ArgType]:
     ``"true"`` → ``True`` for a boolean, ``"\\"hello\\""`` → ``"hello"``
     for a string/choice.
 
-    Same accept-set as :func:`derive_body_grammar_rules`: only programs
-    whose body is a straight-line sequence of ``var = yield gen.X(...)``
-    yields can be processed. Otherwise raises BodyGrammarError.
+    Same accept-set as :func:`derive_body_grammar_rules`: only invocable
+    leaf programs whose body is a straight-line sequence of
+    ``var = yield gen.X(...)`` yields can be processed. Composers raise.
     """
+    _reject_composer(program_fn)
     fn_def = _parse_program_ast(program_fn)
     yields = _extract_yields(fn_def)
     return [_arg_type_for_gen_call(call, idx) for idx, call in enumerate(yields)]
+
+
+def _reject_composer(program_fn: Callable) -> None:
+    """Raise BodyGrammarError if ``program_fn`` is a composer.
+
+    Looks at ``__orate_invocable__`` on the wrapper. Composers
+    (``invocable=False``) do not have a call-site grammar; trying to
+    derive one is a category error and almost always indicates the
+    composer was passed somewhere expecting a leaf.
+    """
+    flag = getattr(program_fn, "__orate_invocable__", None)
+    if flag is False:
+        name = getattr(program_fn, "__name__", repr(program_fn))
+        raise BodyGrammarError(
+            f"{name!r} is a composer (@program(invocable=False)); "
+            "composers don't have a call-site grammar. They orchestrate "
+            "leaves and are run via .run(engine=...) directly. Pass a "
+            "leaf @program (the default) to body-grammar derivation."
+        )
 
 
 def _arg_type_for_gen_call(call: ast.Call, index: int) -> ArgType:
