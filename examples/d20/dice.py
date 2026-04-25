@@ -20,6 +20,20 @@ from orate import gen, program
 
 
 @program
+def narrate():
+    """One sentence of narration. The runtime captures the string and
+    surfaces it as the call's result; the model continues with the
+    next @-call. No free-text mode needed — narration is just another
+    structured emission. Every assistant token is grammar-bound.
+    """
+    text = yield gen.string(
+        max_len=120,
+        description="one short sentence describing what happens in the scene",
+    )
+    return {"text": text}
+
+
+@program
 def roll():
     """One skill check. Model picks the skill + DC; runtime rolls the d20.
 

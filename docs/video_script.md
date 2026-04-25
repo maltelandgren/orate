@@ -79,31 +79,38 @@ attack = yield gen.integer(1, 20,
 ## Act 3 — The session in motion (0:55–1:55)
 
 Dense and visual, minimal voice. Split screen:
-- **Left:** unfolding D&D session transcript
-- **Right:** grammar stack indicator showing the active grammar
-- **Bottom:** KV cache tokens accumulating, never reset
+- **Left:** unfolding D&D session as a sequence of `@-calls`
+- **Right:** the active grammar — narrative `narrate | roll | enter_combat`, then combat `aria_attack | borin_attack | hooded_figure_attack | exit_combat`
+- **Bottom:** KV tokens accumulating, never reset
 
-Sequence:
+Sequence (every emission is a real @-call — no free text, no prose
+prediction):
 
-1. **0:55** — Narration flows. Grammar: `narrative_outer`.
-2. **1:05** — Model emits `@roll(perception, DC=15)`. Stack pushes `roll_args`. `ends_turn=True`, client resolves, `19` injects back into the same KV. Stack pops. Narration continues.
-3. **1:20** — Model emits `@remember({kind: "npc_introduced", who: "hooded_figure", traits: ["armed", "wary"]})`. Structured block. Client buffers it for next turn's context.
-4. **1:30** — `@enter_combat(participants=["Aria", "hooded_figure", "Borin"])`. Grammar stack **replaces** `narrative_outer` with `combat_outer` composed from the three participants' programs.
-5. **1:40** — Round robin: `hooded_figure_turn` → `aria_turn` → `borin_turn`. Each under its own grammar, derived from its stat sheet. Cutaway diagram: stat sheet → action program → combat loop.
-6. **1:50** — `@exit_combat`. `narrative_outer` restored. The earlier `@remember` block surfaces as context.
+1. **0:55** — `@narrate("…")` × 1. The model writes one short sentence under a string grammar.
+2. **1:00** — `@roll(perception, 13)`. Client-resolved tool call: the runtime rolls a d20 server-side, injects `→ {"d20": 17, "success": true}` into the KV, the model continues.
+3. **1:10** — `@narrate("…")` reacting to the roll result.
+4. **1:20** — `@enter_combat(hooded_figure)`. **Mode transition.** The outer grammar swaps from narrative tools to combat tools, atomically, on the same KV.
+5. **1:30** — Round robin under combat-mode grammar: `@hooded_figure_attack(...)`, `@aria_attack(...)`, `@borin_attack(...)`. Each one's body grammar is derived from that character's @program (action set, target list, damage cap). Brief cutaway: flash the three program definitions side-by-side — *"this is all it takes."*
+6. **1:45** — `@exit_combat(victory)`. Mode flips back. `@narrate("…")` closes the scene.
 
-One voiceover line, placed around 1:45:
+One voiceover line, placed around 1:40:
 
-> One KV from start to finish. Six grammar switches, two mode transitions, three composed-per-character programs. One thread.
+> One KV from start to finish. One mode switch, three composed-per-character programs, every token grammar-bound. The whole scene is one inference.
 
-## Act 4 — Legal steps only (1:55–2:50)
+Visual emphasis: when the per-character programs flash on screen,
+make their tininess the point. ~6 lines each. The grammar that binds
+the model's combat tokens *was the model's stat sheet a moment ago.*
+
+Demo runner: [`examples/d20/act3_full_demo.py`](../examples/d20/act3_full_demo.py).
+
+## Act 4 — Legal steps only (1:55–2:55)
 
 Hard cut from simulacrum to a black screen, two lines:
 
 > I built this to finish one game.
 > Then I realized what it actually does.
 
-### Beat 1 — algebra (1:58–2:25)
+### Beat 1 — algebra contrast (1:58–2:25)
 
 Cut to a terminal. Problem on screen:
 
@@ -117,114 +124,147 @@ Voiceover, brisk:
 > Multi-step reasoning is where LLMs slip. Same problem to Qwen-7B in
 > free text:
 
-Show free-text run. Model writes a chain of arithmetic, ends with `ANSWER: x = 4`. Red overlay on the answer.
+Show free-text run (verbatim from `bench/results/legal_steps_2026-04-25_1200.json`'s `eq_3x_plus_5` row). Model writes a chain of arithmetic, ends with `ANSWER: x = 4`. Red overlay on the answer.
 
 > x = 4. Wrong. Plug it back in: 3·4 + 5 = 17, not 14.
 
-Then cut to the constrained run on the same model:
+Hard cut to the **constrained** run on the same model. On the right
+panel, flash the **agent loop in 5 lines** (this is what the user would
+copy-paste):
 
-> Now the same model — same weights, same problem — under
-> ``@algebra_step``. The grammar will not emit a (rule, after) pair
-> that fails ``equivalent_under``.
+```python
+@program(invocable=False)
+def solve():
+    while True:
+        step = yield gen.alternative([algebra_step, done])
+        if step.name == "done":
+            return step.value
+```
+
+Voiceover continues:
+
+> Same weights, same problem, under a `where=` predicate that calls SymPy on every emission. The model's allowed to attempt anything — but only valid steps reach the next yield.
 
 Show the chain:
 ```
-@algebra_step("3x + 5 = 14", combine_like, "3x = 9")
-@algebra_step("3x = 9", isolate_var, "x = 3")
+@algebra_step("3x + 5 = 14", simplify, "3x = 9")     ✓
+@algebra_step("3x = 9", isolate_var, "x = 3")        ✓
 @done("x = 3")
 ```
 
-Each step verifies green. Final: x = 3, plug back in: 3·3 + 5 = 14 ✓.
+> x = 3. Plug back in: 3·3 + 5 = 14 ✓.
 
-> Across a 7-problem benchmark we ran this morning, free-text Qwen-7B
-> got 4 of 7. Same model under @algebra_step got 6 of 7, with eleven
-> illegal-step attempts caught and rejected en route. Same weights.
-> Different gate.
+End of beat:
 
-(Source: [`bench/results/legal_steps_2026-04-25_1132.md`](../bench/results/legal_steps_2026-04-25_1132.md). Decoding is deterministic argmax — these aren't sampling-variance numbers.)
+> Across a 7-problem benchmark, free-text Qwen-7B got 4 of 7. The same
+> model under `@algebra_step` got 6 of 7, with eleven illegal-step
+> attempts caught and rejected en route. Same weights. Different gate.
 
-Cut to session mode. Model emits:
+(Source: [`bench/results/legal_steps_2026-04-25_1200.md`](../bench/results/legal_steps_2026-04-25_1200.md). Decoding is deterministic argmax — these aren't sampling-variance numbers.)
 
-```
-@make_new_program(
-  "algebra_step",
-  "one legal algebraic transformation: (rule, before, after)
-   where after is provably equivalent to before under rule"
-)
-```
+Demo runner: [`examples/legal_steps/act4_algebra_composer.py`](../examples/legal_steps/act4_algebra_composer.py).
 
-Grammar switches. Source synthesized on screen:
+### Beat 2 — logic (2:25–2:40)
 
-```python
-@program
-def algebra_step(before):
-    rule = yield gen.choice(
-        ["substitute", "simplify", "combine_like",
-         "isolate_var", "evaluate"],
-        description="the algebraic move")
-    after = yield gen.string(
-        where=lambda s: equivalent_under(rule, before, s),
-        description="the result, verified equivalent")
-    return {"rule": rule, "before": before, "after": after}
-```
-
-Validates, compiles.
-
-> The `where=` predicate is the gate. If the sampled `after` isn't equivalent to `before` under `rule`, it's rejected — token by token. The model cannot emit an illegal step.
-
-Model composes the solve:
-
-```
-@algebra_step("x + y = 5")          → isolate_var → "x = 5 - y"
-@algebra_step("2(5-y) + 3y = 12")   → simplify   → "10 + y = 12"
-@algebra_step("10 + y = 12")        → isolate_var → "y = 2"
-@algebra_step("x = 5 - 2")          → evaluate   → "x = 3"
-```
-
-Each line appears under its own grammar switch. Green check on each. Final verify: `2(3) + 3(2) = 12 ✓`, `3 + 2 = 5 ✓`, `3 > 2 ✓`.
-
-### Beat 2 — logic (2:25–2:45)
-
-Optional; cut if runtime tight. New problem:
+Same composer pattern, briefer. New problem:
 
 ```
 Given:
-  P → Q
-  Q → R
-  P
-Prove: R
+  A → B
+  B → C
+  A
+Prove: C
 ```
 
-Model emits:
+Model composes (under the same 5-line agent loop, with leaves swapped to `[inference_step, qed]`):
 
 ```
-@make_new_program(
-  "inference_step",
-  "one legal deduction: (rule, premises, conclusion)
-   where conclusion follows from premises under rule"
-)
+@inference_step("A -> B; A", modus_ponens, "B")     ✓
+@inference_step("B -> C; B", modus_ponens, "C")     ✓
+@qed("C")
 ```
 
-Predicate checks that `rule ∈ {modus_ponens, modus_tollens, hypothetical_syllogism, ...}` and that `conclusion` is derivable from `premises` under that rule.
-
-Model composes:
-
-```
-@inference_step(["P → Q", "P"])              → modus_ponens → "Q"
-@inference_step(["Q → R", "Q"])              → modus_ponens → "R"
-```
-
-Green check. QED.
+The `inference_step` predicate runs `derivable_under(rule, premises, conclusion)` — modus ponens / modus tollens / hypothetical syllogism / conjunction / simplification, evaluated as Python.
 
 Voiceover bridging both beats:
 
-> Algebra, logic — anywhere "legal step" is definable, the model can author a schema that enforces legality and then reason strictly within it. The gap between free-text reasoning and constrained reasoning is the gap between *probably right* and *provably valid*.
+> Algebra, logic — wherever "legal step" is definable as a Python predicate, the model can reason strictly within it. The gap between free-text reasoning and constrained reasoning is the gap between *probably right* and *provably valid*.
 
-### Beat 3 — the thesis (2:45–2:50)
+Demo runner: [`examples/legal_steps/act4_logic_composer.py`](../examples/legal_steps/act4_logic_composer.py).
 
-Pull back. Registry panel shows programs accumulated across the video: `dm_turn`, `hooded_figure_turn`, `palindromic_line` (cut this one if cut earlier), `algebra_step`, `inference_step`. The library grew during the demo.
+### Beat 3 — the finisher (2:40–2:55)
 
-> Instruction-following is soft pressure on a probability distribution. This is hard constraint — schema with logic — authored mid-inference, binding forward, composable. A new primitive for reasoning under guarantee.
+The climax. Hard cut. New problem on screen:
+
+```
+Solve: x² - 5x + 6 = 0
+```
+
+Voiceover:
+
+> The pre-registered `@algebra_step` doesn't fit a quadratic — its
+> rules are linear-equation moves. Watch the model decide.
+
+Model emits — *on the same KV*:
+
+```
+@make_new_program("quadratic_solve",
+  "find both roots of a quadratic in standard form")
+```
+
+**Grammar switches.** Source materialises on screen, sampled token by
+token under `PROGRAM_SOURCE_GRAMMAR`:
+
+```python
+@program
+def quadratic_solve():
+    equation = yield gen.string(max_len=40)
+    a = yield gen.integer(-20, 20)
+    b = yield gen.integer(-20, 20)
+    c = yield gen.integer(-20, 20)
+    root1 = yield gen.integer(-20, 20)
+    root2 = yield gen.integer(-20, 20)
+    return {"equation": equation, "a": a, "b": b, "c": c,
+            "roots": [root1, root2]}
+```
+
+Validates. AST-checks. Sandbox-execs. Registers. Outer grammar rebuilds
+to include `@quadratic_solve(`.
+
+> The model just designed its own data type. The schema's structure is
+> now grammar-bound — every future emission of `@quadratic_solve(...)`
+> must fit it.
+
+Model uses what it just authored:
+
+```
+@quadratic_solve("x^2 - 5x + 6 = 0", 1, -5, 6, 2, 3)
+@done("x = 2 or x = 3")
+```
+
+Verify: 2² - 5·2 + 6 = 0 ✓, 3² - 5·3 + 6 = 0 ✓.
+
+Pull back to a registry panel showing what grew across the video:
+`narrate`, `roll`, `enter_combat`, `aria_attack`, `borin_attack`,
+`hooded_figure_attack`, `exit_combat`, `algebra_step`, `done`,
+`inference_step`, `qed`, `quadratic_solve`. The last one wasn't there
+when the video started.
+
+> Instruction-following is soft pressure on a probability distribution.
+> This is hard constraint — schema with logic — authored mid-inference,
+> binding forward, composable. A new primitive for reasoning under
+> guarantee.
+
+Demo runner: [`examples/legal_steps/act4_meta_finisher.py`](../examples/legal_steps/act4_meta_finisher.py).
+
+> ⚠️ Honest scope. Today the model-authored body is a *typed schema* —
+> `gen.choice / integer / string / boolean` with no `where=` clause.
+> The grammar enforces type structure but not the math. The
+> hand-authored leaves (`algebra_step`, `inference_step`) carry the
+> SymPy predicates; meta-authored leaves don't yet. Extending
+> `PROGRAM_SOURCE_GRAMMAR` with a `where=<lib_predicate>` form is on
+> the JIT segmentation roadmap. For the video this distinction stays
+> off-mic — but it's documented here so we don't oversell.
 
 ## Close (2:50–3:00)
 
@@ -240,24 +280,28 @@ Card, held 5 seconds:
 
 ## Production notes
 
-### What needs to ship for this demo to be real
+### Capability state
 
-| Capability | State | Effort |
-|---|---|---|
-| Persistent KV session with `@call` grammar | shipped | — |
-| `@make_new_program` mid-session | shipped | — |
-| `@program` composition (program invokes program) | shipped (Flavor B minimal) | — |
-| `@remember({...})` — just `gen.struct`, client-side buffering | shipped | 0 |
-| `ends_turn=True` loop (client resolves → inject) | field exists, loop unwired | ~3 hr |
-| Grammar mode-switch (replace outer grammar mid-session) | not shipped | ~1–2 hr |
-| Typed kwargs (`@algebra_step("x + y = 5")`) | positional-only | ~2 hr |
-| 3 composed NPC programs for combat | Python | ~1 hr |
-| `equivalent_under(rule, before, after)` via SymPy | not shipped | ~1 hr |
-| Logic `derivable_under(rule, premises, conclusion)` | not shipped | ~1 hr |
-| Demo `@program`s + problems (algebra + logic) | not shipped | ~1 hr |
-| Visualization overlay (grammar stack, registry panel, KV bar) | not shipped | ~3 hr |
-
-**Total:** ~12 hr. Two working days.
+| Capability | State |
+|---|---|
+| Persistent KV session with @-call grammar | shipped |
+| `@make_new_program` mid-session | shipped |
+| Per-leaf body grammar + transition-based composition | shipped (`feat/flavor-b-full` merged) |
+| `gen.alternative([leaves])` composer primitive | shipped |
+| `@program(invocable=False)` composer flag | shipped |
+| Real client-resolved tool call (`@roll`) — body returns the result | shipped |
+| Grammar mode-switch (`enter_combat` / `exit_combat`) | shipped |
+| Typed kwargs (positional with type-aware scanner) | shipped |
+| Three composed NPC programs (Aria / Borin / hooded figure) | shipped |
+| `equivalent_under` via SymPy (with scalar-multiple equivalence) | shipped |
+| Logic `derivable_under` (modus ponens / tollens / hyp syllogism / …) | shipped |
+| Engine grammar cache + warmup (kills 232s cold-start) | shipped |
+| Free-text vs constrained 7-problem benchmark | shipped (4/7 vs 6/7, 11 rejections caught) |
+| Composer demos for algebra + logic (5-line agent loop) | shipped |
+| Act 3 full demo: narrate + roll + combat | shipped |
+| Act 4 meta-authorship finisher (typed schema only) | shipped |
+| Visualization overlay (grammar stack, registry panel, KV bar) | not shipped — manim work |
+| Predicate-bound model-authored programs (`where=` in the meta grammar) | **NOT shipped** — see Beat 3 honest-scope footnote |
 
 ### Shot-level production decisions (to make before filming)
 
@@ -271,8 +315,10 @@ Card, held 5 seconds:
 Priority order if 3:00 is tight:
 1. Keep Act 1 (0:25) — the pain sets the whole video.
 2. Keep Act 2 (0:30) — the primitive is the product.
-3. Trim Act 3 from 60s → 45s by dropping the `@remember` beat (step 3 in the sequence).
-4. In Act 4, cut the logic beat (2:25–2:45), keep algebra. The thesis still lands.
+3. Keep Act 4 Beat 1 (algebra contrast — 27s) and Beat 3 (meta-authorship finisher — 15s). Those are the punchline.
+4. **Cut Act 4 Beat 2 (logic, 15s)** first — algebra alone carries the legal-step thesis if runtime is tight.
+5. **Trim Act 3** by skipping the second `@narrate` (between roll and enter_combat) and using a single tighter narrative beat.
+6. Last resort: collapse the registry pull-back and the closing card into one (saves ~3s).
 
 ### What this script is not
 
