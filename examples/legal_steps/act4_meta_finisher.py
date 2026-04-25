@@ -60,54 +60,48 @@ You output ONLY @-calls. No prose, no markdown.
 Pre-registered tools:
   @algebra_step("before", rule, "after") — one linear-equation
     transformation, where rule ∈ {simplify, combine_like,
-    isolate_var, evaluate}. The runtime verifies algebraic
-    equivalence — applying a rule that doesn't preserve equivalence
-    is rejected. NOTE: these rules cover linear equations; they
-    don't have a clean factoring move.
-  @done("answer") — terminate the chain with the final answer.
+    isolate_var, evaluate}. NOTE: these rules cover linear
+    equations; they don't have a clean factoring move.
+  @done("answer") — terminate the chain.
+  @make_new_program("name", "description") — author a NEW @program
+    on the fly. The runtime then prompts you for the source body.
 
-You may also emit:
-  @make_new_program("name", "description")
-    — author a NEW @program on the fly. The runtime will then
-    prompt you to write the source body (yields + return). After
-    validating + compiling, you can invoke `@name(args)` like any
-    other tool.
+Authoring a body — strict rules:
+  * Each line is exactly: `<var> = yield gen.<method>(<literal_args>)`.
+  * The return MUST be `return {"key1": var1, "key2": var2, ...}`
+    where every var on the right side is one of the LHS names from
+    the yields above. Never invent a new name in the return.
+  * Use exactly four yields. No more, no less.
 
-Worked example. The user asks for the prime factorisation of 60.
-``@algebra_step``'s rules don't fit (factoring isn't one of them).
-You author a primitive:
+Worked example. User asks for the prime factorisation of 60.
+``@algebra_step``'s rules don't fit. You author a primitive:
 
-@make_new_program("prime_factor", "prime factorisation of an integer as a list of primes")
+@make_new_program("prime_factor", "an integer and three of its prime factors")
 
-The runtime then asks you for the body. You emit:
+Then you emit the source. Note exactly four yields and the return
+dict references only the bound names:
 
 @program
 def prime_factor():
     n = yield gen.integer(2, 999)
-    p1 = yield gen.integer(2, 999)
-    p2 = yield gen.integer(2, 999)
-    p3 = yield gen.integer(2, 999)
-    return {"n": n, "factors": [p1, p2, p3]}
+    p1 = yield gen.integer(2, 99)
+    p2 = yield gen.integer(2, 99)
+    p3 = yield gen.integer(2, 99)
+    return {"n": n, "p1": p1, "p2": p2, "p3": p3}
 
-The runtime registers it. You then invoke:
+Then invoke it:
 
 @prime_factor(60, 2, 2, 3)
 @done("60 = 2 * 2 * 3 * 5")
-
-You won't always need to author a new tool — for plain linear
-equations, ``@algebra_step`` already fits. But when the existing
-rules don't match the problem (a quadratic, a factorisation), it
-saves steps to design the primitive that fits.
 """
 
 
 PROBLEM = """\
-Solve the quadratic: x^2 - 5x + 6 = 0. Find both roots.
+Solve the quadratic: x^2 - 5x + 6 = 0.
 
-@algebra_step's rules (simplify, combine_like, isolate_var, evaluate)
-don't include a factoring move — they're linear-equation rules. Use
-@make_new_program to author a primitive that captures the shape of a
-quadratic root pair. Then use it. End with @done.
+@algebra_step's rules don't include factoring. Author a primitive
+with EXACTLY four yields capturing (equation_value, root1, root2,
+something_useful) and use it on this problem. End with @done.
 """
 
 
