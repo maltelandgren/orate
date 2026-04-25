@@ -312,7 +312,22 @@ class Session:
 
         self._rebuild_outer_grammar()
         self.engine.begin_session(system)
+        # Pay XGrammar's first-compile JIT cost up front and pre-populate
+        # the engine's grammar cache with the current outer grammar.
+        # Without this, the first sample_under after the mode switch
+        # eats a one-time ~10x penalty (see bench/results/legal_steps_*).
+        # Engines that don't expose .warm() (e.g. MockEngine) fall through.
+        self._engine_warm([self._outer_grammar])
         self.transcript: list[Event] = []
+
+    def _engine_warm(self, grammars: list[str]) -> None:
+        """Trigger the engine's grammar-compile cache for ``grammars``.
+
+        No-op on engines that don't expose ``warm()``. Safe to call any
+        time after construction.
+        """
+        if hasattr(self.engine, "warm"):
+            self.engine.warm(grammars)
 
     # ---- registration ---------------------------------------------------
 
@@ -383,6 +398,9 @@ class Session:
         entry.body_grammar = _build_body_grammar(entry)
         self.registry[name] = entry
         self._rebuild_outer_grammar()
+        # The outer grammar has changed; warm the cache so the next
+        # sample_under doesn't pay compile time.
+        self._engine_warm([self._outer_grammar])
 
     def set_mode(self, mode: str) -> None:
         """Switch the session's active mode and rebuild the outer grammar.
@@ -393,6 +411,7 @@ class Session:
         """
         self._active_mode = mode
         self._rebuild_outer_grammar()
+        self._engine_warm([self._outer_grammar])
 
     @property
     def active_mode(self) -> str:
