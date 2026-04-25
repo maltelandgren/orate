@@ -281,3 +281,46 @@ def test_empty_body_compiles_under_xgrammar():
         return None
 
     _compile_with_xgrammar(derive_body_grammar(e), "e_body")
+
+
+# ---- two-tier: composers refuse derivation -------------------------
+
+
+def test_composer_rejected_by_derive_body_grammar():
+    @program(invocable=False)
+    def dnd():
+        # Composers can have control flow; they shouldn't be passed to
+        # body-grammar derivation in the first place. The derivation
+        # raises early with a pointed message rather than failing later
+        # on the loop.
+        while True:
+            x = yield gen.choice(["a", "b"])
+            if x == "a":
+                return None
+
+    with pytest.raises(BodyGrammarError, match="composer"):
+        derive_body_grammar(dnd)
+
+
+def test_composer_rejected_by_derive_call_arg_types():
+    from orate.body_grammar import derive_call_arg_types
+
+    @program(invocable=False)
+    def dnd():
+        n = yield gen.integer(0, 10)
+        return n
+
+    with pytest.raises(BodyGrammarError, match="composer"):
+        derive_call_arg_types(dnd)
+
+
+def test_invocable_default_is_true():
+    @program
+    def leaf():
+        x = yield gen.boolean()
+        return x
+
+    # Every existing @program is a leaf; derivation works without
+    # special-casing.
+    body = derive_body_grammar(leaf)
+    assert "leaf_body" in body

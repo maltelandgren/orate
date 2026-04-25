@@ -45,6 +45,20 @@ class ProgramInvocation:
     (b) swap the visible-program registry to a different mode (mode
     transition; e.g. ``@enter_combat`` flips the session into
     "combat" mode).
+
+    ``invocable`` distinguishes the two tiers of program:
+
+      * ``invocable=True`` — a *leaf*. The body is a straight-line
+        sequence of yields with a derivable call-site grammar. The
+        program can be inlined as ``@name(args)`` in another
+        program's grammar. This is the default — everything that
+        was a @program before this flag existed is a leaf.
+
+      * ``invocable=False`` — a *composer*. The body may contain
+        loops, conditionals, and yields of other programs. No
+        body-grammar derivation is attempted. Composers are run
+        directly via ``.run(engine=…)`` and orchestrate leaves; they
+        cannot themselves appear in a parent's call-site grammar.
     """
 
     body: Callable[..., Iterator[Gen]]
@@ -54,6 +68,7 @@ class ProgramInvocation:
     reject_message: Callable[[int, BaseException], str] | str | None = None
     ends_turn: bool = False
     mode_transition: str | None = None
+    invocable: bool = True
     trace: list[dict] = field(default_factory=list)
 
     def _run_once(self, engine: Engine) -> Any:
@@ -123,19 +138,39 @@ def program(
     reject_message: Callable[[int, BaseException], str] | str | None = None,
     ends_turn: bool = False,
     mode_transition: str | None = None,
+    invocable: bool = True,
 ) -> Any:
     """Decorator: turn a generator function into a runnable program.
 
-    Two forms::
+    Two tiers, distinguished by ``invocable``:
+
+      * Leaf (``invocable=True``, default). Body is a straight-line
+        sequence of yields whose call-site grammar can be derived.
+        The runtime can inline ``@name(args)`` into another program's
+        grammar; the model emits these directly during decoding.
+
+      * Composer (``invocable=False``). Body may contain loops,
+        conditionals, mutable Python state, and yields of other
+        programs. No body-grammar derivation. Composers are run
+        directly via ``.run(engine=…)`` and orchestrate leaves;
+        they cannot themselves appear in a parent's call-site grammar.
+
+    Two decorator forms::
 
         @program
-        def f(): ...                             # no Phase-C retry
+        def f(): ...                             # leaf, no retry
 
-        @program(whole_program_retries=3)        # Phase-C retry on
-        def g(): ...                             # ProgramRejected / GrammarExhausted
+        @program(whole_program_retries=3)
+        def g(): ...
 
-    The decorated function returns a ProgramInvocation; call `.run(engine=...)`
-    to execute. The generator is driven one yield at a time against the engine.
+        @program(invocable=False)                # composer
+        def dnd():
+            while True:
+                action = yield gen.alternative([narration, diceroll])
+                ...
+
+    The decorated function returns a ProgramInvocation; call
+    ``.run(engine=...)`` to execute.
 
     ``ends_turn`` is Session-level metadata: when the Session runner
     completes a call to this program, it ends the assistant turn and
@@ -157,14 +192,36 @@ def program(
                 reject_message=reject_message,
                 ends_turn=ends_turn,
                 mode_transition=mode_transition,
+                invocable=invocable,
             )
 
         wrapper.__wrapped__ = fn_  # type: ignore[attr-defined]
         wrapper.__name__ = getattr(fn_, "__name__", "program")
         wrapper.__orate_ends_turn__ = ends_turn  # type: ignore[attr-defined]
         wrapper.__orate_mode_transition__ = mode_transition  # type: ignore[attr-defined]
+        wrapper.__orate_invocable__ = invocable  # type: ignore[attr-defined]
         return wrapper
 
     if fn is not None and callable(fn):
         return decorate(fn)
     return decorate
+
+
+def is_invocable(fn: Callable[..., Any]) -> bool:
+    """Return True iff ``fn`` is a leaf @program (call-site invocable).
+
+    Looks at the wrapper attribute first (set at decoration time), then
+    falls back to inspecting an invocation. Bare callables (not wrapped
+    in @program) are treated as invocable for backwards compat —
+    nothing else uses this helper today.
+    """
+    flag = getattr(fn, "__orate_invocable__", None)
+    if flag is not None:
+        return bool(flag)
+    try:
+        inv = fn()  # type: ignore[call-arg]
+        if isinstance(inv, ProgramInvocation):
+            return inv.invocable
+    except TypeError:
+        pass
+    return True
