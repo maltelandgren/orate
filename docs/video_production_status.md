@@ -1,11 +1,30 @@
 # Video production status — Saturday Apr 25
 
-**Submission:** Sunday Apr 26, 8pm EST. ~32 hours from now.
-**Working tree for video:** [`../orate-video`](../../orate-video) on branch `video/explore`.
-**Working tree for code:** main, plus `feat/benchmarks` for the new benchmark harness.
-**Manim direction:** D3 hybrid (paper for narrative, terminal-dark inset for technical) — POC at `orate-video/video/scenes/candidate_full.py`.
+**Submission:** Sunday Apr 26, 8pm EST.
+**Manim direction:** D1 paper aesthetic (per user direction; was D3 hybrid).
 
-> Top-line: every Act's *content* is now real and runnable. The benchmark gives the contrast shot real numbers (free-text 4/7 vs constrained 6/7 on the same problems, same Qwen-7B). What's left is recording asciinema, manim authoring, voice, and compositing — production work, not engineering.
+> Top-line: every Act's *content* is real and runnable. Two capability
+> gaps that were caveated in earlier versions are now closed:
+> ``@narrate`` runs at speed (recursive ``gen.string`` grammar — commit
+> ``4da326a``); model-authored ``@program``s can carry ``where=``
+> predicates from a host-provided library (commit ``6473880``). The
+> video v2 (``video/scenes/full_video_v2.py``) is being authored to
+> match the revised script with tighter pacing.
+
+## Saturday-evening update
+
+What landed since the last "production status" snapshot:
+
+| Capability | Commit | What it unblocks |
+|---|---|---|
+| Per-leaf grammars + composer + ``gen.alternative`` | `c042cf7` | Cleaner Act-4 agent loop on screen (5 lines of Python) |
+| Engine grammar cache + warm() | `8247deb` | Kills 232s cold-start; Session calls run at steady state from token 1 |
+| Real ``ends_turn`` for client-resolved tool calls | `d70ba37` | ``@roll`` returns the resolved d20; tool calls and structured output are the same yield stream |
+| Recursive ``gen.string`` grammar | `4da326a` | ``@narrate`` runs in ~2s, was hanging for minutes |
+| ``@narrate`` + ``@meta`` in Act 3 demo | `325d209` | In-character + out-of-character narration as same-shape tools — multiple same-shape outputs welcome, no XML-tag wrapping |
+| Predicate-bound model authoring (``where=`` in PROGRAM_SOURCE_GRAMMAR) | `6473880` | Beat 3 finisher can show the model authoring **logical** constraints, not just typed schemas |
+
+The Act-3 full trace at [`bench/results/act3_full_2026-04-25_2330.md`](../bench/results/act3_full_2026-04-25_2330.md) shows the entire scripted Page-4 sequence end-to-end on Qwen-7B: in-character narration → `@roll(perception, 13)` → `@meta` reaction → in-character narration informed by the d20 result → mode-switch into combat → three NPC turns → mode-switch out.
 
 ---
 
