@@ -21,14 +21,40 @@ from orate import gen, program
 
 @program
 def narrate():
-    """One sentence of narration. The runtime captures the string and
-    surfaces it as the call's result; the model continues with the
-    next @-call. No free-text mode needed — narration is just another
-    structured emission. Every assistant token is grammar-bound.
+    """In-character narration. One short sentence describing what
+    happens in the scene from the DM's voice. The runtime captures
+    the string and surfaces it as the call's result; the model
+    continues with the next @-call.
+
+    Note this is the SAME shape (string body) as @meta — same
+    grammar, different tool. Multiple same-shape outputs are
+    welcome. The pattern of "wrap things in XML tags and parse
+    post-generation" is unnecessary here — the model picks the tool
+    name, the grammar binds the rest, and the runtime knows from
+    the call-prefix which output is which.
+    """
+    text = yield gen.string(
+        max_len=140,
+        description="one short in-character sentence of DM narration",
+    )
+    return {"text": text}
+
+
+@program
+def meta():
+    """Out-of-character meta-comment. Same body shape as @narrate
+    (a single string yield), different tool name and different
+    purpose. The model uses @meta to step outside the fiction —
+    e.g. commenting on a dice result or table dynamic — without
+    breaking the narrative.
+
+    Purpose-of-the-output is a first-class signal carried by the
+    tool name. Two tools, same string-shape body, no XML tag
+    wrappers needed.
     """
     text = yield gen.string(
         max_len=120,
-        description="one short sentence describing what happens in the scene",
+        description="one short out-of-character DM/table comment",
     )
     return {"text": text}
 
