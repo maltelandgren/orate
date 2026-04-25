@@ -112,20 +112,35 @@ def test_boolean_emits_true_false_alternation():
     assert '"false"' in body
 
 
-def test_string_max_len_emits_bounded_char_class():
+def test_string_max_len_emits_recursive_chars_rule():
     @program
     def name():
         s = yield gen.string(max_len=3)
         return s
 
     body = derive_body_grammar(name)
-    # Helper rule carries the char class; wrapped in quoted quote-marks.
-    helper_line = [line for line in body.splitlines() if line.startswith("name_str_")]
-    assert helper_line, f"expected a name_str_* helper rule in: {body}"
-    rhs = helper_line[0]
-    # Three total character positions, one required + two optional.
-    assert rhs.count("?") == 2
-    assert '"\\""' in rhs  # opens and closes with an escaped quote
+    # The string rule wraps a recursive chars-rest rule between quotes.
+    # The cap (max_len) is enforced post-sample by the Session driver,
+    # not in the grammar — so the helper compiles to a tight 2-state DFA.
+    # Older shape was `char char? char? ...` which compiled to a
+    # degenerate length-tracking automaton that hung on long strings.
+    helper_lines = [line for line in body.splitlines() if line.startswith("name_str_")]
+    assert helper_lines, f"expected name_str_* helper rules in: {body}"
+    chars_rule = next(
+        (line for line in helper_lines if "_chars" in line.split("::=")[0]),
+        None,
+    )
+    assert chars_rule is not None, (
+        f"expected a name_str_*_chars recursive rule in: {body}"
+    )
+    # Recursive shape: <chars> ::= <char_class> <chars> | ""
+    assert "_chars" in chars_rule
+    assert '""' in chars_rule  # the empty alternative is the recursion's base case
+    # The wrapping rule opens + closes with a quote.
+    wrap_rule = next(
+        line for line in helper_lines if "_chars" not in line.split("::=")[0]
+    )
+    assert '"\\""' in wrap_rule
 
 
 def test_string_with_explicit_pattern_uses_it():

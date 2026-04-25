@@ -510,6 +510,11 @@ class _RuleBuilder:
     def __init__(self, program_name: str) -> None:
         self.program_name = program_name
         self.helper_rules: dict[str, str] = {}
+        # Per-rule length caps for gen.string yields. Populated by
+        # _fragment_string. The Session driver consults this post-sample
+        # to truncate / reject overlong strings; the grammar itself is
+        # length-unbounded (recursive chars*).
+        self.string_caps: dict[str, int] = {}
 
     # -- dispatch ----------------------------------------------------
 
@@ -629,12 +634,21 @@ class _RuleBuilder:
             )
         char_class = _pattern_to_char_class(pattern)
         rule_name = self._reserve(f"str_{index}")
-        # "quote" chars quote
-        body_parts = [char_class]
-        for _ in range(max_len - 1):
-            body_parts.append(f"{char_class}?")
-        chars_body = " ".join(body_parts)
-        self.helper_rules[rule_name] = f'"\\"" {chars_body} "\\""'
+        chars_rule = self._reserve(f"str_{index}_chars")
+        # Recursive char-rest rule compiles to a tight 2-state DFA — the
+        # matcher accepts any number of chars between the quotes. This
+        # replaces the older shape (1 mandatory + (max_len-1) optional
+        # chars in linear sequence), which compiled to a degenerate
+        # length-tracking automaton that hung Qwen-7B for narration-
+        # length strings (~120 chars). The length cap (max_len) is now
+        # enforced at sample time via the engine's max_tokens budget
+        # plus a post-sample length check by the caller; the grammar
+        # itself admits arbitrary length.
+        self.helper_rules[chars_rule] = f"{char_class} {chars_rule} | \"\""
+        self.helper_rules[rule_name] = f'"\\"" {chars_rule} "\\""'
+        # Stash the cap on the builder for callers that want to enforce
+        # it (the Session driver checks it post-sample if available).
+        self.string_caps[rule_name] = max_len
         return rule_name
 
     # -- gen.boolean -------------------------------------------------
