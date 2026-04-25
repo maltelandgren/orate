@@ -51,6 +51,24 @@ from theme import Paper, Terminal
 from llm import LLMProtagonist, LogitItem
 
 
+# Thin-space (U+2009) used to add tracking to bolded display text.
+# Hair-space (U+200A) tested too narrow at 1080p — barely visible. Thin
+# space gives a clear breath between glyphs without breaking the read.
+_THIN = "\u2009"
+
+
+def _spaced(s: str, n: int = 1) -> str:
+    """Add `n` thin spaces between every pair of characters of `s`.
+
+    Used on bolded display text where manim's tight letter spacing
+    cramps glyphs; one thin space gives a clear breath. We do NOT space
+    across word boundaries — only between adjacent letters. Pass n=2
+    for headline display text where tracking should be visibly loose.
+    """
+    sep = _THIN * n
+    return sep.join(list(s))
+
+
 # ============================================================================
 # Helpers
 # ============================================================================
@@ -109,6 +127,123 @@ def _code_block(lines: list[tuple[str, str]],
         ln.shift(RIGHT * (n_leading * per_space))
         ln.shift(UP * (anchor[1] - i * line_height))
         grp.add(ln)
+    return grp
+
+
+# ---- Syntax-highlighted code lines --------------------------------------
+#
+# A "rich line" is a list of (text, color) tokens. We compose each token
+# as a separate Text mobject and concatenate horizontally with a known
+# per-space offset (mono so it's predictable). Trailing tokens are placed
+# next-to the previous token with no buffer; a literal " " in a token
+# becomes its own glyph. Indent is handled via the leading-space prefix
+# in the first token.
+#
+# Distinct tokens take their own color, so we get:
+#   - decorator (Paper.accent)
+#   - keyword   (Paper.accent_soft / Terminal.amber)
+#   - name      (Terminal.amber / Paper.ink)
+#   - string    (Paper.good)
+#   - number    (Terminal.blue)
+#   - punct     (Paper.ink_soft)
+#   - default   (Paper.ink)
+
+
+# Cached monospace per-character width by font_size (monospace fonts have
+# uniform glyph advance width).
+_MONO_CHAR_WIDTH_CACHE: dict[int, float] = {}
+
+
+def _mono_char_width(font_size: int) -> float:
+    if font_size in _MONO_CHAR_WIDTH_CACHE:
+        return _MONO_CHAR_WIDTH_CACHE[font_size]
+    # Render a long ruler in mono, divide by length.
+    ruler = Text("M" * 40, font=theme.MONO_FALLBACK,
+                 font_size=font_size, color=Paper.ink)
+    w = (ruler.get_right()[0] - ruler.get_left()[0]) / 40.0
+    _MONO_CHAR_WIDTH_CACHE[font_size] = w
+    return w
+
+
+def _rich_line(tokens: list[tuple[str, str]],
+               font_size: int = 14,
+               indent_units: float = 0.0) -> VGroup:
+    """Build a horizontal VGroup from (text, color) tokens.
+
+    Strategy: monospace fonts have a constant per-character advance width.
+    We compute that once per font_size and place each colored token at
+    the cumulative character offset from the line's origin. This avoids
+    the manim quirk where leading/trailing whitespace inside a Text gets
+    collapsed (which broke an earlier Text-concatenation approach).
+    """
+    full_text = "".join(t for t, _ in tokens)
+    if not full_text:
+        return VGroup()
+
+    char_w = _mono_char_width(font_size)
+    grp = VGroup()
+    char_offset = 0
+    # Pick a baseline mobject (rendered first, non-empty) to use as the
+    # vertical reference — its center-y becomes the row's baseline.
+    baseline_y = None
+    for t, c in tokens:
+        if not t:
+            continue
+        # Whitespace-only tokens contribute width but no glyphs we need
+        # to render; skip rendering but still advance the cursor.
+        if t.strip() == "":
+            char_offset += len(t)
+            continue
+        # Render token (keep internal spaces as non-breaking so manim
+        # doesn't collapse them).
+        rendered = t.replace(" ", "\u00a0")
+        m = Text(rendered, font=theme.MONO_FALLBACK,
+                 font_size=font_size, color=c)
+        if baseline_y is None:
+            baseline_y = m.get_center()[1]
+        # Shift this token to its target x; lock baseline.
+        target_x = char_offset * char_w
+        dx = target_x - m.get_left()[0]
+        dy = baseline_y - m.get_center()[1]
+        m.shift(np.array([dx, dy, 0]))
+        grp.add(m)
+        char_offset += len(t)
+    if indent_units:
+        grp.shift(RIGHT * indent_units)
+    return grp
+
+
+def _rich_block(rich_lines: list[list[tuple[str, str]]],
+                anchor: np.ndarray,
+                line_height: float = 0.32,
+                font_size: int = 14,
+                indent_em: float = 0.12) -> VGroup:
+    """A code block where each row is a token list (text, color).
+
+    Indent is computed from leading whitespace on the FIRST token of each
+    row. After the first token is built, we shift the entire row so its
+    first token's left edge is at `anchor[0] + n_leading * per_space_unit`.
+    """
+    grp = VGroup()
+    per_space_unit = indent_em * (font_size / 14.0)
+    for i, tokens in enumerate(rich_lines):
+        first_t = tokens[0][0] if tokens else ""
+        n_leading = len(first_t) - len(first_t.lstrip(" "))
+        if n_leading:
+            new_tokens = [(first_t.lstrip(" "), tokens[0][1])] + list(tokens[1:])
+        else:
+            new_tokens = tokens
+        line = _rich_line(new_tokens, font_size=font_size)
+        if len(line) == 0:
+            continue
+        first = line[0]
+        # x: align first child to anchor[0] + indent
+        dx = (anchor[0] + n_leading * per_space_unit) - first.get_left()[0]
+        # y: align center of first child to row y
+        target_y = anchor[1] - i * line_height
+        dy = target_y - first.get_center()[1]
+        line.shift(np.array([dx, dy, 0]))
+        grp.add(line)
     return grp
 
 
@@ -193,13 +328,15 @@ class FullVideoV2(Scene):
         self.wait(1.8)
 
         # Beat 1.B — two columns: training-time vs inference-time.
-        # Training-time chips
+        # The two columns sit closer together than before — feedback was
+        # the original layout left a wide negative-space gap that read as
+        # disconnection rather than contrast.
         tt_label = Text("training time", font=theme.SANS_FALLBACK,
                         font_size=14, color=Paper.ink_soft)
         it_label = Text("inference time", font=theme.SANS_FALLBACK,
                         font_size=14, color=Paper.ink_soft)
-        tt_label.move_to(np.array([-5.2, 0.5, 0]))
-        it_label.move_to(np.array([0.5, 0.5, 0]))
+        tt_label.move_to(np.array([-3.7, 0.5, 0]))
+        it_label.move_to(np.array([-0.6, 0.5, 0]))
 
         ft_chip = _chip("fine-tuning")
         ft_chip.next_to(tt_label, DOWN, buff=0.25)
@@ -226,7 +363,8 @@ class FullVideoV2(Scene):
         self.wait(1.4)
 
         # Beat 1.C — strike out training-time. Inference-time → "Developer accessible".
-        strike_ft = _strike_line(ft_chip, color=Paper.bad, width=2.4)
+        # Bolder strikethrough — feedback called the original line too thin.
+        strike_ft = _strike_line(ft_chip, color=Paper.bad, width=4.5)
         self.play(FadeIn(strike_ft, run_time=0.45))
         self.play(
             ft_chip.animate.set_opacity(0.35),
@@ -295,25 +433,31 @@ class FullVideoV2(Scene):
                   FadeIn(prompts_line1, shift=UP * 0.08, run_time=0.4))
         self.wait(1.4)
 
+        # "Hard to write programs around." attaches to PROMPTS only.
+        # Bolded display text uses tracked letter-spacing (hair spaces) —
+        # cramped glyphs were visible at 1080p without it.
         prompts_punch = Text(
-            "Hard to write programs around.",
-            font="Georgia", font_size=22, color=Paper.ink,
+            _spaced("Hard to write programs around."),
+            font="Georgia", weight="BOLD", font_size=22, color=Paper.ink,
         )
         prompts_punch.move_to(np.array([0, anchor_y - 0.55, 0]))
         self.play(FadeIn(prompts_punch, shift=UP * 0.08, run_time=0.4))
         self.wait(2.0)
 
         # structured output: bridge — same line transforms.
+        # "Lets us write programs around" highlights BOTH structured output
+        # AND tool calls (both are program-friendly inference primitives).
         self.play(*_unhighlight(prompts_chip),
                   *_highlight(so_chip),
+                  *_highlight(tools_chip),
                   FadeOut(prompts_line1, shift=UP * 0.05, run_time=0.3))
 
         # The bridge: "Hard to write programs around" → "Lets us write programs around".
         # Use cross-fade rather than Transform — Transform morphs glyph-by-glyph
         # and produces a glitchy intermediate frame.
         prompts_punch_target = Text(
-            "Lets us write programs around.",
-            font="Georgia", font_size=22, color=Paper.accent,
+            _spaced("Lets us write programs around."),
+            font="Georgia", weight="BOLD", font_size=22, color=Paper.accent,
         )
         prompts_punch_target.move_to(prompts_punch.get_center())
         self.play(
@@ -366,16 +510,43 @@ class FullVideoV2(Scene):
         )
 
         # Beat 2.B — LLM fills a schema inside the drawer with annotations.
+        # Syntax highlighting:
+        #   keys (e.g. "name") in Paper.ink
+        #   string values in Paper.good
+        #   numbers in Terminal.blue
+        #   booleans in Terminal.amber
+        #   punctuation muted (Paper.ink_soft)
         schema_anchor = np.array([-6.55, 2.1, 0])
-        schema_lines = [
-            ('{', Paper.ink),
-            ('  "name":     "Aria",', Paper.ink),
-            ('  "level":    3,', Paper.ink),
-            ('  "class":    "bard",', Paper.ink),
-            ('  "alive":    true,', Paper.ink),
-            ('}', Paper.ink),
+        P = Paper.ink_soft  # punctuation
+        schema_rich = [
+            [("{", P)],
+            [('  ', Paper.ink),
+             ('"name"', Paper.ink),
+             (':', P),
+             ('     ', Paper.ink),
+             ('"Aria"', Paper.good),
+             (',', P)],
+            [('  ', Paper.ink),
+             ('"level"', Paper.ink),
+             (':', P),
+             ('    ', Paper.ink),
+             ('3', Terminal.blue),
+             (',', P)],
+            [('  ', Paper.ink),
+             ('"class"', Paper.ink),
+             (':', P),
+             ('    ', Paper.ink),
+             ('"bard"', Paper.good),
+             (',', P)],
+            [('  ', Paper.ink),
+             ('"alive"', Paper.ink),
+             (':', P),
+             ('    ', Paper.ink),
+             ('true', Terminal.amber),
+             (',', P)],
+            [("}", P)],
         ]
-        schema = _code_block(schema_lines, anchor=schema_anchor,
+        schema = _rich_block(schema_rich, anchor=schema_anchor,
                              line_height=0.40, font_size=16)
         # We'll reveal the lines progressively + caption each field.
 
@@ -383,44 +554,105 @@ class FullVideoV2(Scene):
 
         captions = []
 
-        def reveal_field(idx: int, caption: str, color: str = Paper.accent_soft):
-            """Reveal schema line idx, point a caption to its right."""
-            self.play(FadeIn(schema[idx], shift=LEFT * 0.1, run_time=0.3))
-            cap = Text(caption, font=theme.MONO_FALLBACK,
-                       font_size=12, color=color)
-            cap.next_to(schema[idx], RIGHT, buff=0.35)
-            self.play(FadeIn(cap, shift=LEFT * 0.05, run_time=0.25))
-            captions.append(cap)
-            self.wait(0.25)
+        def reveal_field(idx: int, type_label: str, type_color: str,
+                         tail: str = "") -> None:
+            """Reveal schema line idx, point a typed caption to its right.
 
-        reveal_field(1, "← string")
-        reveal_field(2, "← integer")
-        reveal_field(3, "← enum [bard, cleric, rogue]")
-        reveal_field(4, "← boolean")
+            The type_label (String / Integer / Enum / Boolean) renders
+            BOLD in `type_color`; the tail (e.g. " [bard, cleric, rogue]")
+            renders in muted text. Pacing is ~30% slower than the
+            original feedback round.
+            """
+            self.play(FadeIn(schema[idx], shift=LEFT * 0.1, run_time=0.4))
+            arrow = Text("← must be a", font=theme.MONO_FALLBACK,
+                         font_size=12, color=Paper.ink_soft)
+            type_t = Text(_spaced(type_label, n=1),
+                          font=theme.MONO_FALLBACK, weight="BOLD",
+                          font_size=13, color=type_color)
+            cap_grp = VGroup(arrow, type_t).arrange(RIGHT, buff=0.18)
+            if tail:
+                tail_t = Text(tail, font=theme.MONO_FALLBACK,
+                              font_size=12, color=Paper.ink_soft)
+                cap_grp = VGroup(arrow, type_t, tail_t).arrange(
+                    RIGHT, buff=0.18,
+                )
+            cap_grp.next_to(schema[idx], RIGHT, buff=0.35)
+            self.play(FadeIn(cap_grp, shift=LEFT * 0.05, run_time=0.35))
+            captions.append(cap_grp)
+            # ~30% longer hold than the prior 0.25s pacing.
+            self.wait(0.55)
+
+        reveal_field(1, "String", Paper.accent)
+        reveal_field(2, "Integer", Terminal.blue)
+        reveal_field(3, "Enum", Paper.accent_soft,
+                     tail="  [bard, cleric, rogue]")
+        reveal_field(4, "Boolean", Terminal.amber)
         self.play(FadeIn(schema[5], run_time=0.2))  # closing brace
         self.wait(1.0)
 
-        # Beat 2.C — caption: where's the logic in that?
-        bridge_q = Text(
-            "Type lives in the decoder.   Where's the logic?",
-            font="Georgia", slant="ITALIC", font_size=20,
-            color=Paper.ink_soft,
-        )
-        bridge_q.to_edge(DOWN, buff=0.7)
-        self.play(FadeIn(bridge_q, shift=UP * 0.08, run_time=0.5))
-        self.wait(2.4)
-
-        # Fade captions out (but keep schema)
+        # Beat 2.C — the full-quote bridge. We render every clause as
+        # its own mobject so we can keep "the logic" while fading the
+        # rest, and then dock "the logic" up to the upper-right header
+        # position (mirroring "structured output" upper-left).
         self.play(FadeOut(VGroup(*captions), run_time=0.35))
 
-        # Beat 2.D — "the logic" header drops top-right; mirrored drawer.
-        logic_chip = _chip("the logic", font_size=16,
-                           fg=Paper.accent, stroke=Paper.accent)
-        logic_chip.move_to(np.array([3.8, 3.55, 0]))
-        # Bridge_q transforms into the logic chip on the right.
-        # Snap bridge_q first; then materialise the chip.
-        self.play(FadeOut(bridge_q, shift=UP * 0.1, run_time=0.3))
-        self.play(FadeIn(logic_chip, shift=DOWN * 0.15, run_time=0.4))
+        bridge_pre = Text(
+            "With structured output we've put typing",
+            font="Georgia", slant="ITALIC", font_size=18,
+            color=Paper.ink_soft,
+        )
+        bridge_pre2 = Text(
+            "directly into the decoding process.",
+            font="Georgia", slant="ITALIC", font_size=18,
+            color=Paper.ink_soft,
+        )
+        # Question line: "Where's the logic in that?"
+        # Build as separate mobjects so "the logic" can survive the fade.
+        q_left = Text("Where's", font="Georgia", slant="ITALIC",
+                      font_size=22, color=Paper.ink)
+        q_logic = Text(_spaced("the logic"),
+                       font="Georgia", weight="BOLD", font_size=22,
+                       color=Paper.accent)
+        q_right = Text("in that?", font="Georgia", slant="ITALIC",
+                       font_size=22, color=Paper.ink)
+        question_row = VGroup(q_left, q_logic, q_right).arrange(
+            RIGHT, buff=0.22,
+        )
+        bridge_grp = VGroup(bridge_pre, bridge_pre2, question_row).arrange(
+            DOWN, buff=0.14,
+        )
+        bridge_grp.to_edge(DOWN, buff=0.55)
+
+        self.play(FadeIn(bridge_pre, shift=UP * 0.06, run_time=0.55))
+        self.play(FadeIn(bridge_pre2, shift=UP * 0.06, run_time=0.55))
+        self.wait(0.5)
+        self.play(FadeIn(question_row, shift=UP * 0.08, run_time=0.55))
+        self.wait(2.0)
+
+        # Beat 2.D — fade everything except "the logic"; dock it to the
+        # upper-right header position. Mirrors "structured output" top-left.
+        logic_dock_target = _chip("the logic", font_size=16,
+                                  fg=Paper.accent, stroke=Paper.accent)
+        logic_dock_target.move_to(np.array([3.8, 3.55, 0]))
+        # We DO NOT include `q_logic` in the fade-out — it's the survivor.
+        self.play(
+            FadeOut(VGroup(bridge_pre, bridge_pre2, q_left, q_right),
+                    run_time=0.45),
+        )
+        # Animate the survivor up to its dock position. We rebuild as a
+        # chip there to mirror so_chip's geometry; the text travels via
+        # a Transform on the survivor's center.
+        self.play(
+            q_logic.animate.move_to(logic_dock_target.get_center())
+                            .scale(0.8),
+            run_time=0.7,
+        )
+        # Place the chip behind the now-docked text and fade it in.
+        self.play(FadeIn(logic_dock_target, run_time=0.35))
+        # The text on top of the chip should be the chip's own label —
+        # remove the survivor and let the chip text take over.
+        self.remove(q_logic)
+        logic_chip = logic_dock_target
 
         right_drawer = _paper_card(width=6.4, height=4.4)
         right_drawer.move_to(np.array([3.55, 0.2, 0]))
@@ -432,20 +664,40 @@ class FullVideoV2(Scene):
         )
 
         # Beat 2.E — draw the dm_turn @program in the right drawer.
+        # SYNTAX HIGHLIGHTED:
+        #   @program (Paper.accent)
+        #   def keyword (Paper.accent_soft) — function name (Terminal.amber)
+        #   yield / if / return (Paper.accent_soft)
+        #   gen.X attribute (Terminal.amber)
+        #   strings (Paper.good), numbers (Terminal.blue)
         right_anchor = np.array([0.7, 2.1, 0])
-        prog_lines = [
-            ("@program", Paper.accent),
-            ("def dm_turn(scene):", Paper.ink),
-            ("    narration  = yield gen.string(...)", Paper.ink),
-            ("    needs_roll = yield gen.boolean()", Paper.ink),
-            ("    if needs_roll:", Paper.ink_soft),
-            ("        dc     = yield gen.integer(5, 25)", Paper.ink),
-            ("        result = yield gen.tool(", Paper.ink),
-            ("                     roll_d20, dc=dc)", Paper.ink),
-            ("    npc_line   = yield gen.string(...)", Paper.ink),
-            ("    return {...}", Paper.ink),
+        ACC = Paper.accent
+        KW  = Paper.accent_soft   # keywords
+        FN  = Terminal.amber      # function / attribute names
+        ID  = Paper.ink           # identifiers + neutral
+        DIM = Paper.ink_soft      # dimmed
+        NUM = Terminal.blue
+        prog_rich = [
+            [("@program", ACC)],
+            [("def ", KW), ("dm_turn", FN), ("(", DIM),
+             ("scene", ID), ("):", DIM)],
+            [("    narration  = ", ID), ("yield ", KW),
+             ("gen.string", FN), ("(...)", DIM)],
+            [("    needs_roll = ", ID), ("yield ", KW),
+             ("gen.boolean", FN), ("()", DIM)],
+            [("    if ", KW), ("needs_roll", ID), (":", DIM)],
+            [("        dc     = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("5", NUM), (", ", DIM), ("25", NUM), (")", DIM)],
+            [("        result = ", ID), ("yield ", KW),
+             ("gen.tool", FN), ("(", DIM)],
+            [("                     ", ID), ("roll_d20", FN),
+             (", dc=dc)", DIM)],
+            [("    npc_line   = ", ID), ("yield ", KW),
+             ("gen.string", FN), ("(...)", DIM)],
+            [("    return ", KW), ("{...}", DIM)],
         ]
-        prog = _code_block(prog_lines, anchor=right_anchor,
+        prog = _rich_block(prog_rich, anchor=right_anchor,
                            line_height=0.32, font_size=13)
         self.play(LaggedStart(
             *[FadeIn(ln, shift=LEFT * 0.08) for ln in prog],
@@ -488,22 +740,33 @@ class FullVideoV2(Scene):
         self.play(FadeIn(intro2, shift=UP * 0.08, run_time=0.4))
         self.wait(0.6)
 
-        # Beat 3.B — algebra_step source on the left.
+        # Beat 3.B — algebra_step source on the left, syntax-highlighted.
         anchor_l = np.array([-6.7, 0.9, 0])
-        algebra_lines = [
-            ("@program", Paper.accent),
-            ("def algebra_step():", Paper.ink),
-            ("    before = yield gen.string(...)", Paper.ink),
-            ("    rule   = yield gen.choice([", Paper.ink),
-            ("        'simplify', 'isolate_var',", Paper.ink_soft),
-            ("        'evaluate', 'combine_like'])", Paper.ink_soft),
-            ("    after  = yield gen.string(", Paper.ink),
-            ("        where=lambda s:", Paper.accent),
-            ("            equivalent_under(", Paper.accent),
-            ("                rule, before, s))", Paper.accent),
-            ("    return {...}", Paper.ink),
+        ACC = Paper.accent
+        KW  = Paper.accent_soft
+        FN  = Terminal.amber
+        ID  = Paper.ink
+        DIM = Paper.ink_soft
+        STR = Paper.good
+        algebra_rich = [
+            [("@program", ACC)],
+            [("def ", KW), ("algebra_step", FN), ("():", DIM)],
+            [("    before = ", ID), ("yield ", KW),
+             ("gen.string", FN), ("(...)", DIM)],
+            [("    rule   = ", ID), ("yield ", KW),
+             ("gen.choice", FN), ("([", DIM)],
+            [("        'simplify'", STR), (", ", DIM),
+             ("'isolate_var'", STR), (",", DIM)],
+            [("        'evaluate'", STR), (", ", DIM),
+             ("'combine_like'", STR), ("])", DIM)],
+            [("    after  = ", ID), ("yield ", KW),
+             ("gen.string", FN), ("(", DIM)],
+            [("        where=", ACC), ("lambda ", KW), ("s", ID), (":", DIM)],
+            [("            equivalent_under", FN), ("(", DIM)],
+            [("                rule, before, s", ID), ("))", DIM)],
+            [("    return ", KW), ("{...}", DIM)],
         ]
-        algebra = _code_block(algebra_lines, anchor=anchor_l,
+        algebra = _rich_block(algebra_rich, anchor=anchor_l,
                               line_height=0.34, font_size=14)
         self.play(LaggedStart(
             *[FadeIn(ln, shift=LEFT * 0.08) for ln in algebra],
@@ -571,22 +834,38 @@ class FullVideoV2(Scene):
         self.play(FadeIn(free_x_mark, run_time=0.25))
         self.wait(1.2)
 
-        # Constrained run beneath
+        # Constrained run beneath. Each call sits on a SINGLE line —
+        # earlier renders broke at the 2nd argument and read as ugly.
+        # We tighten by dropping internal whitespace, shrinking font 1pt,
+        # and rendering each token rich-coloured (call name in ink, args
+        # in muted, OK-mark in green).
         cons_label = Text("under @algebra_step", font=theme.SANS_FALLBACK,
                           font_size=12, color=Paper.accent)
         cons_label.move_to(np.array([1.5, anchor_r_top - 2.5, 0]))
-        cons_lines = [
-            ('@algebra_step("3x+5=14",', Paper.ink),
-            ('  simplify, "3x=9")  ✓', Paper.good),
-            ('@algebra_step("3x=9",', Paper.ink),
-            ('  isolate_var, "x=3")  ✓', Paper.good),
-            ('@done("x = 3")  ✓', Paper.accent),
+        # Build lines as token VGroups so call-name / arg / mark each
+        # take their own colour without relying on t2c heuristics.
+        cons_specs = [
+            [("@algebra_step", Paper.ink),
+             ('("3x+5=14", simplify, "3x=9")', Paper.ink_soft),
+             ("  ✓", Paper.good)],
+            [("@algebra_step", Paper.ink),
+             ('("3x=9", isolate_var, "x=3")', Paper.ink_soft),
+             ("  ✓", Paper.good)],
+            [("@done", Paper.accent),
+             ('("x = 3")', Paper.ink_soft),
+             ("  ✓", Paper.good)],
         ]
         cons_block = VGroup()
-        for i, (t, c) in enumerate(cons_lines):
-            ln = _code_text(t, c, font_size=13)
-            ln.move_to(np.array([3.6, anchor_r_top - 2.92 - 0.34 * i, 0]))
-            ln.align_to(np.array([1.5, 0, 0]), LEFT)
+        line_anchor_x = 1.5
+        for i, tokens in enumerate(cons_specs):
+            ln = _rich_line(tokens, font_size=12)
+            ln.align_to(np.array([line_anchor_x, 0, 0]), LEFT)
+            ln.move_to(np.array([
+                ln.get_center()[0],
+                anchor_r_top - 2.92 - 0.34 * i,
+                0,
+            ]))
+            ln.align_to(np.array([line_anchor_x, 0, 0]), LEFT)
             cons_block.add(ln)
         self.play(FadeIn(cons_label, run_time=0.3))
         self.play(LaggedStart(
@@ -623,54 +902,181 @@ class FullVideoV2(Scene):
     # ======================================================================
 
     def _page4_dnd_session_and_combat_regrammar(self):
-        # Beat 4.A — page header + grammar indicator (the visual workhorse).
+        # ====================================================================
+        # Beat 4.A — page transition. The header that EARNS the reveal:
+        #   "We can nest and compose programs together."
+        # then morphs to the punchier "One KV. Many grammars." for the body.
+        # ====================================================================
+        compose_header = Text(
+            _spaced("We can nest and compose programs together."),
+            font="Georgia", weight="BOLD", font_size=26, color=Paper.ink,
+        )
+        compose_header.to_edge(UP, buff=0.65)
+        self.play(FadeIn(compose_header, shift=UP * 0.08, run_time=0.5))
+        self.wait(2.4)
+
         title = Text(
-            "One KV. Many grammars.",
-            font="Georgia", slant="ITALIC", font_size=26, color=Paper.ink,
+            _spaced("One KV. Many grammars."),
+            font="Georgia", slant="ITALIC", weight="BOLD",
+            font_size=22, color=Paper.ink_soft,
         )
-        title.to_edge(UP, buff=0.45)
-        self.play(FadeIn(title, shift=UP * 0.08, run_time=0.4))
-
-        # Grammar indicator panel (right edge). It lists active leaf-tools.
-        # Horizontal pill row inside a slim frame.
-        gi_frame = RoundedRectangle(
-            width=6.6, height=0.7, corner_radius=0.16,
-            fill_color=Paper.card, fill_opacity=1.0,
-            stroke_color=Paper.grid, stroke_width=1.0,
-        )
-        gi_frame.move_to(np.array([2.4, 2.55, 0]))
-        gi_label = Text("active grammar", font=theme.SANS_FALLBACK,
-                        font_size=11, color=Paper.ink_soft)
-        gi_label.next_to(gi_frame, UP, buff=0.06, aligned_edge=LEFT)
-
-        narrative_chips = VGroup(
-            _chip("@narrate", font_size=11),
-            _chip("@roll", font_size=11),
-            _chip("@meta", font_size=11),
-            _chip("@enter_combat", font_size=11),
-        ).arrange(RIGHT, buff=0.16)
-        narrative_chips.move_to(gi_frame.get_center())
-
+        title.to_edge(UP, buff=0.4)
+        # Cross-fade to the title — keeps a header anchor at the top.
         self.play(
-            FadeIn(gi_frame, run_time=0.3),
-            FadeIn(gi_label, run_time=0.3),
-            FadeIn(narrative_chips, run_time=0.4),
+            FadeOut(compose_header, shift=UP * 0.1, run_time=0.45),
+            FadeIn(title, shift=UP * 0.06, run_time=0.5),
         )
         self.wait(0.4)
 
-        # Beat 4.B — trace area on the left.
+        # ====================================================================
+        # Tab indicator (the navigational anchor). Two levels:
+        #   OUTER:  Many grammars  [ *narrative* | combat ]
+        #   SUBBAR:                [ *narration* | roll | meta ]
+        # The active outer tab is bolded; the active subbar leaf bolds
+        # in real time as emissions fire.
+        # ====================================================================
+        TAB_TOP_Y = 2.55      # outer tab vertical center
+        SUB_Y    = 1.95       # subbar vertical center
+        TAB_X    = 0.0        # whole indicator centered horizontally
+
+        outer_label = Text("Many grammars", font=theme.SANS_FALLBACK,
+                           font_size=14, color=Paper.ink_soft)
+        outer_label.move_to(np.array([-3.4, TAB_TOP_Y, 0]))
+
+        def _tab(name: str, active: bool, font_size: int = 14) -> VGroup:
+            """A flat tab — bold when active, muted otherwise.
+
+            We render the active variant with hair-space tracking so
+            bolded text doesn't read cramped. Inactive tabs use the
+            muted ink. The active tab also gets a thin underline.
+            """
+            color = Paper.accent if active else Paper.ink_soft
+            label = (_spaced(name) if active else name)
+            t = Text(
+                label, font=theme.SANS_FALLBACK,
+                weight=("BOLD" if active else "NORMAL"),
+                font_size=font_size, color=color,
+            )
+            grp = VGroup(t)
+            if active:
+                ul = Line(
+                    t.get_corner(np.array([-1, -1, 0])) + np.array([0, -0.06, 0]),
+                    t.get_corner(np.array([1, -1, 0])) + np.array([0, -0.06, 0]),
+                    stroke_color=Paper.accent, stroke_width=2.2,
+                )
+                grp.add(ul)
+            return grp
+
+        def _bracketed_tabs(names: list[str], active_idx: int,
+                             font_size: int = 14) -> VGroup:
+            """Render `[ a | b | c ]` with the `active_idx`-th name bolded."""
+            lb = Text("[", font=theme.SANS_FALLBACK, font_size=font_size,
+                     color=Paper.ink_soft)
+            rb = Text("]", font=theme.SANS_FALLBACK, font_size=font_size,
+                     color=Paper.ink_soft)
+            sep_specs = []
+            tab_mobs = []
+            for i, n in enumerate(names):
+                tab_mobs.append(_tab(n, active=(i == active_idx),
+                                      font_size=font_size))
+            row = VGroup(lb)
+            for i, t in enumerate(tab_mobs):
+                row.add(t)
+                if i < len(tab_mobs) - 1:
+                    sep = Text("|", font=theme.SANS_FALLBACK,
+                               font_size=font_size, color=Paper.mute)
+                    row.add(sep)
+                    sep_specs.append(sep)
+            row.add(rb)
+            row.arrange(RIGHT, buff=0.18)
+            return row
+
+        # Outer tabs: [narrative | combat]; "narrative" is initially active.
+        outer_tabs = _bracketed_tabs(["narrative", "combat"], active_idx=0)
+        outer_tabs.next_to(outer_label, RIGHT, buff=0.3)
+
+        # Subbar: starts as [narration | roll | meta], "narration" hot
+        sub_names = ["narration", "roll", "meta"]
+        subbar = _bracketed_tabs(sub_names, active_idx=0, font_size=12)
+        # Drop subbar slightly to right-of-center under the outer tabs.
+        subbar.move_to(np.array([
+            outer_tabs.get_center()[0],
+            SUB_Y, 0,
+        ]))
+
+        self.play(
+            FadeIn(outer_label, run_time=0.35),
+            FadeIn(outer_tabs, run_time=0.45),
+        )
+        self.play(FadeIn(subbar, shift=UP * 0.06, run_time=0.4))
+        self.wait(0.4)
+
+        # Helper: rebuild the subbar with a different active leaf, fading
+        # the old subbar out and the new one in atomically. Cheap and
+        # bulletproof — beats animating individual letters.
+        subbar_state = {"current": subbar, "names": list(sub_names),
+                        "active_idx": 0, "font_size": 12}
+
+        def set_subbar(names: list[str] | None = None,
+                        active_idx: int = 0,
+                        font_size: int | None = None,
+                        run_time: float = 0.35) -> VGroup:
+            current = subbar_state["current"]
+            new_names = names if names is not None else subbar_state["names"]
+            fs = font_size if font_size is not None else subbar_state["font_size"]
+            new_bar = _bracketed_tabs(new_names, active_idx=active_idx,
+                                       font_size=fs)
+            new_bar.move_to(np.array([
+                outer_tabs.get_center()[0],
+                SUB_Y, 0,
+            ]))
+            self.play(
+                FadeOut(current, run_time=run_time * 0.5),
+                FadeIn(new_bar, run_time=run_time),
+            )
+            subbar_state["current"] = new_bar
+            subbar_state["names"] = new_names
+            subbar_state["active_idx"] = active_idx
+            subbar_state["font_size"] = fs
+            return new_bar
+
+        def set_outer(active_idx: int, run_time: float = 0.45) -> VGroup:
+            new_outer = _bracketed_tabs(
+                ["narrative", "combat"], active_idx=active_idx,
+            )
+            new_outer.next_to(outer_label, RIGHT, buff=0.3)
+            self.play(
+                FadeOut(outer_tabs[:], run_time=run_time * 0.5),
+                FadeIn(new_outer, run_time=run_time),
+            )
+            return new_outer
+
+        # ====================================================================
+        # Beat 4.B — trace area. Anchored on the LEFT half of the frame
+        # below the tab indicator — single text column, doesn't compete.
+        # ====================================================================
         trace_x = -6.7
-        trace_top_y = 1.6
+        trace_top_y = 1.2
         line_h = 0.42
 
         idx = [0]
         trace_items = VGroup()
 
+        # Mono per-char width at the trace font size — used to honour
+        # leading whitespace in emit() text (manim Text strips it).
+        emit_char_w = _mono_char_width(14)
+
         def emit(text: str, color: str = Paper.ink, font_size: int = 14,
                  indent: float = 0.0, hold: float = 0.0,
                  run_time: float = 0.32) -> Text:
-            t = _code_text(text, color, font_size=font_size)
-            t.align_to(np.array([trace_x + indent, 0, 0]), LEFT)
+            # If `text` has leading spaces (visual indent), preserve them
+            # by adding their pixel-width to `indent`. Otherwise manim
+            # strips them and the continuation line slams left.
+            n_leading = len(text) - len(text.lstrip(" "))
+            stripped = text.lstrip(" ")
+            extra_indent = n_leading * emit_char_w
+            t = _code_text(stripped, color, font_size=font_size)
+            t.align_to(np.array([trace_x + indent + extra_indent, 0, 0]), LEFT)
             t.shift(UP * (trace_top_y - idx[0] * line_h))
             self.play(FadeIn(t, shift=LEFT * 0.08, run_time=run_time))
             trace_items.add(t)
@@ -679,27 +1085,16 @@ class FullVideoV2(Scene):
                 self.wait(hold)
             return t
 
-        def highlight_grammar(chip_idx: int):
-            """Visually pop one grammar chip to indicate it's the active emission."""
-            chip = narrative_chips[chip_idx]
-            return [chip.animate.set_stroke(Paper.accent, width=1.8)]
-
-        def unhighlight_grammar(chip_idx: int):
-            chip = narrative_chips[chip_idx]
-            return [chip.animate.set_stroke(Paper.grid, width=1.0)]
-
-        # Narration emission
-        self.play(*highlight_grammar(0), run_time=0.3)
+        # Narration emission — subbar shows "narration" hot.
+        # (subbar already starts on narration, so no rebuild needed.)
         emit('@narrate("You try to convince the hooded figure',
              color=Paper.ink, hold=0.0)
         emit('         this is all a misunderstanding…")',
-             color=Paper.ink, hold=2.0)
-        self.play(*unhighlight_grammar(0), run_time=0.3)
+             color=Paper.ink, hold=1.6)
 
-        # Roll emission
-        self.play(*highlight_grammar(1), run_time=0.25)
-        emit('@roll("persuasion", dc=14)',
-             color=Paper.ink)
+        # Roll emission — subbar bolds "roll".
+        set_subbar(active_idx=1, run_time=0.3)
+        emit('@roll("persuasion", dc=14)', color=Paper.ink)
         # Show the round-trip: client returns the resolved tool result.
         roll_arrow = Text("            ↓  client resolves",
                           font=theme.MONO_FALLBACK,
@@ -719,193 +1114,213 @@ class FullVideoV2(Scene):
         self.play(FadeIn(roll_resolved, shift=LEFT * 0.08, run_time=0.35))
         idx[0] += 1
         trace_items.add(roll_resolved)
-        self.wait(1.4)
-        self.play(*unhighlight_grammar(1), run_time=0.25)
+        self.wait(1.2)
 
-        # Meta emission — out-of-character commentary
-        self.play(*highlight_grammar(2), run_time=0.3)
+        # Meta emission — subbar bolds "meta".
+        set_subbar(active_idx=2, run_time=0.3)
         emit('@meta("Haha — a 1. Sorry, won\'t cut it.")',
-             color=Paper.accent_soft, hold=1.6)
-        self.play(*unhighlight_grammar(2), run_time=0.3)
+             color=Paper.accent_soft, hold=1.4)
 
-        # Quick caption: same shape, different purpose.
+        # Brief caption — anchored at bottom-right so it doesn't compete
+        # with the trace stream above.
         meta_caption = Text(
             "@meta and @narrate are both string-typed —",
-            font="Georgia", slant="ITALIC", font_size=15,
+            font="Georgia", slant="ITALIC", font_size=14,
             color=Paper.ink_soft,
         )
         meta_caption2 = Text(
             "no XML tags, no post-parse. Just two tools.",
-            font="Georgia", slant="ITALIC", font_size=15,
+            font="Georgia", slant="ITALIC", font_size=14,
             color=Paper.ink_soft,
         )
-        meta_caption.move_to(np.array([3.0, -1.6, 0]))
-        meta_caption2.next_to(meta_caption, DOWN, buff=0.12)
-        self.play(FadeIn(meta_caption, run_time=0.45),
-                  FadeIn(meta_caption2, run_time=0.45))
-        self.wait(3.0)
-        self.play(FadeOut(meta_caption, run_time=0.35),
-                  FadeOut(meta_caption2, run_time=0.35))
+        meta_grp = VGroup(meta_caption, meta_caption2).arrange(
+            DOWN, aligned_edge=LEFT, buff=0.1,
+        )
+        meta_grp.to_edge(DOWN, buff=0.55)
+        meta_grp.shift(RIGHT * 0.6)
+        self.play(FadeIn(meta_grp, run_time=0.45))
+        self.wait(2.4)
+        self.play(FadeOut(meta_grp, run_time=0.35))
 
-        # Back to narrate
-        self.play(*highlight_grammar(0), run_time=0.3)
+        # Back to narration — subbar bolds "narration".
+        set_subbar(active_idx=0, run_time=0.3)
         emit('@narrate("\'My fist is going to make you',
              color=Paper.ink)
         emit('         miss understanding, punk.\'")',
-             color=Paper.ink, hold=1.8)
-        self.play(*unhighlight_grammar(0), run_time=0.3)
+             color=Paper.ink, hold=1.4)
 
-        # @enter_combat
-        self.play(*highlight_grammar(3), run_time=0.3)
+        # @enter_combat — the regrammar moment.
         emit('@enter_combat(aria, borin, hooded_figure)',
-             color=Paper.accent, hold=1.2)
+             color=Paper.accent, hold=0.6)
 
-        # ----- Beat 4.C — grammar reshapes for combat. -----
-        # Build the new chips, position over the same frame; transform.
-        combat_chips = VGroup(
-            _chip("@aria_turn", font_size=11),
-            _chip("@borin_turn", font_size=11),
-            _chip("@hooded_figure_turn", font_size=11),
-            _chip("@exit_combat", font_size=11),
-        ).arrange(RIGHT, buff=0.16)
-        combat_chips.move_to(gi_frame.get_center())
-
-        # The transition itself is the content.
-        self.play(
-            FadeOut(narrative_chips, shift=UP * 0.2, run_time=0.5),
-            FadeIn(combat_chips, shift=DOWN * 0.2, run_time=0.6),
+        # ====================================================================
+        # Beat 4.C — grammar reshapes for combat.
+        # OUTER tab swaps narrative→combat; SUBBAR reshapes from
+        #   [narration, roll, meta] → [aria_turn, borin_turn, hooded_figure_turn]
+        # ====================================================================
+        outer_tabs = set_outer(active_idx=1, run_time=0.5)
+        set_subbar(
+            names=["aria_turn", "borin_turn", "hooded_figure_turn"],
+            active_idx=0, run_time=0.55,
         )
         switch_caption = Text(
             "↑  grammar swap on the same KV",
             font="Georgia", slant="ITALIC", font_size=14, color=Paper.accent,
         )
-        switch_caption.next_to(gi_frame, DOWN, buff=0.18)
+        switch_caption.next_to(subbar_state["current"], DOWN, buff=0.18)
         self.play(FadeIn(switch_caption, shift=UP * 0.06, run_time=0.45))
-        self.wait(2.0)
+        self.wait(1.6)
         self.play(FadeOut(switch_caption, run_time=0.3))
 
-        # A pair of in-combat emissions so the regrammar feels real.
-        self.play(*[combat_chips[0].animate.set_stroke(Paper.accent, width=1.8)],
-                  run_time=0.3)
-        emit('@aria_turn(action="longsword",',
-             color=Paper.ink)
+        # A pair of in-combat emissions — subbar bolds the active NPC.
+        # aria_turn (active_idx=0) is already hot.
+        emit('@aria_turn(action="longsword",', color=Paper.ink)
         emit('           bonus_action="healing_word")',
-             color=Paper.ink, hold=1.4)
-        self.play(*[combat_chips[0].animate.set_stroke(Paper.grid, width=1.0)],
-                  run_time=0.25)
+             color=Paper.ink, hold=1.0)
 
-        self.play(*[combat_chips[2].animate.set_stroke(Paper.accent, width=1.8)],
-                  run_time=0.3)
-        emit('@hooded_figure_turn(action="dagger",',
-             color=Paper.ink)
+        # hooded_figure's turn — subbar bolds index 2.
+        set_subbar(active_idx=2, run_time=0.3)
+        emit('@hooded_figure_turn(action="dagger",', color=Paper.ink)
         emit('                    target="aria")',
-             color=Paper.ink, hold=1.6)
-        self.play(*[combat_chips[2].animate.set_stroke(Paper.grid, width=1.0)],
-                  run_time=0.25)
+             color=Paper.ink, hold=1.4)
 
-        # ----- Beat 4.D — Aria's turn with the cross-field where=. -----
-        # Clear the trace area to make room for the load-bearing source code.
-        self.play(FadeOut(trace_items, run_time=0.35))
+        # ====================================================================
+        # Beat 4.D — Aria's turn. Pull aria_turn out to the LEFT, fold
+        # the program definition out next to it. The other elements dim
+        # so the source code is unambiguously the visual focus.
+        # ====================================================================
+        # Bring aria_turn back into focus on the subbar.
+        set_subbar(
+            names=["aria_turn", "borin_turn", "hooded_figure_turn"],
+            active_idx=0, run_time=0.3,
+        )
+
+        # Clear the trace area; we re-anchor with the program reveal.
+        self.play(FadeOut(trace_items, run_time=0.4))
         idx[0] = 0
         trace_items = VGroup()
 
-        # Restart the trace area with a small heading
-        aria_head = Text(
-            "Aria's @program — action + bonus_action",
-            font="Georgia", slant="ITALIC", font_size=18,
-            color=Paper.ink,
+        # Dim other elements so the program is the visual focus.
+        self.play(
+            outer_label.animate.set_opacity(0.35),
+            outer_tabs.animate.set_opacity(0.35),
+            title.animate.set_opacity(0.4),
+            run_time=0.4,
         )
-        aria_head.move_to(np.array([-3.6, 1.85, 0]))
-        self.play(FadeIn(aria_head, shift=UP * 0.08, run_time=0.35))
 
+        # Animate aria_turn out to the LEFT of frame, scale up a touch.
+        # The subbar leaf at active_idx=0 is the second child of subbar
+        # (after lb). We pull a fresh, larger label out — easier than
+        # animating the bracketed group.
+        aria_focus = Text(
+            _spaced("aria_turn"),
+            font=theme.SANS_FALLBACK, weight="BOLD",
+            font_size=22, color=Paper.accent,
+        )
+        # Start at the active subbar leaf position (best-effort) and
+        # animate to a left-side anchor where the program will fold open.
+        active_leaf = subbar_state["current"][2]  # [ , aria_turn, |, ...]
+        aria_focus.move_to(active_leaf.get_center())
+        self.add(aria_focus)
+        self.play(
+            subbar_state["current"].animate.set_opacity(0.3),
+            aria_focus.animate.move_to(np.array([-5.0, 1.95, 0]))
+                              .scale(1.05),
+            run_time=0.7,
+        )
+
+        # Fold the program definition out — appears beneath the focus
+        # label and slightly to its right, occupying the left half of
+        # frame width-wise. Syntax-highlighted.
         anchor_aria = np.array([-7.0, 1.4, 0])
-        aria_lines = [
-            ("@program", Paper.accent),
-            ("def aria_turn():", Paper.ink),
-            ("    move = yield gen.struct(", Paper.ink),
-            ("        action=gen.choice([", Paper.ink),
-            ("            'longsword', 'fireball',", Paper.ink_soft),
-            ("            'vicious_mockery', 'hold']),", Paper.ink_soft),
-            ("        bonus_action=gen.choice([", Paper.ink),
-            ("            'dagger', 'healing_word',", Paper.ink_soft),
-            ("            'thorn_whip', 'hold']),", Paper.ink_soft),
-            ("        where=lambda d: not (", Paper.accent),
-            ("            d['action'] in NON_CANTRIPS", Paper.accent),
-            ("            and d['bonus_action'] in SPELLS", Paper.accent),
-            ("        ),", Paper.accent),
-            ("    )", Paper.ink),
-            ("    return move", Paper.ink),
+        ACC = Paper.accent
+        KW  = Paper.accent_soft
+        FN  = Terminal.amber
+        ID  = Paper.ink
+        DIM = Paper.ink_soft
+        STR = Paper.good
+        aria_rich = [
+            [("@program", ACC)],
+            [("def ", KW), ("aria_turn", FN), ("():", DIM)],
+            [("    move = ", ID), ("yield ", KW),
+             ("gen.struct", FN), ("(", DIM)],
+            [("        action=", ID), ("gen.choice", FN), ("([", DIM)],
+            [("            'longsword'", STR), (", ", DIM),
+             ("'fireball'", STR), (",", DIM)],
+            [("            'vicious_mockery'", STR), (", ", DIM),
+             ("'hold'", STR), ("]),", DIM)],
+            [("        bonus_action=", ID), ("gen.choice", FN), ("([", DIM)],
+            [("            'dagger'", STR), (", ", DIM),
+             ("'healing_word'", STR), (",", DIM)],
+            [("            'thorn_whip'", STR), (", ", DIM),
+             ("'hold'", STR), ("]),", DIM)],
+            [("        where=", ACC), ("lambda ", KW),
+             ("d", ID), (": ", DIM), ("not (", ACC)],
+            [("            d['action'] in NON_CANTRIPS", ACC)],
+            [("            and d['bonus_action'] in SPELLS", ACC)],
+            [("        ),", ACC)],
+            [("    )", DIM)],
+            [("    return ", KW), ("move", ID)],
         ]
-        aria_code = _code_block(aria_lines, anchor=anchor_aria,
+        aria_code = _rich_block(aria_rich, anchor=anchor_aria,
                                 line_height=0.30, font_size=13)
         self.play(LaggedStart(
             *[FadeIn(ln, shift=LEFT * 0.08) for ln in aria_code],
-            lag_ratio=0.08, run_time=2.2,
+            lag_ratio=0.07, run_time=2.0,
         ))
-        self.wait(1.2)
+        self.wait(0.9)
 
         # Highlight the where= block — this is THE moment.
+        # Height is fitted to the lines [9..12] block (4 lines x 0.30
+        # line_height) with a slim padding so we don't bite into the
+        # bonus_action line above or `return move` below.
         where_box = RoundedRectangle(
-            width=6.4, height=1.6, corner_radius=0.10,
+            width=6.6, height=1.32, corner_radius=0.10,
             fill_color=Paper.accent, fill_opacity=0.12,
             stroke_color=Paper.accent, stroke_width=1.6,
         )
         center_y = (aria_code[9].get_center()[1]
                     + aria_code[12].get_center()[1]) / 2
-        where_box.move_to(np.array([anchor_aria[0] + 3.1, center_y, 0]))
+        where_box.move_to(np.array([anchor_aria[0] + 3.2, center_y, 0]))
         # Caption goes to the RIGHT of the where_box (avoids overlapping
         # `return move` which is the line immediately below the box).
-        where_label = Text(
-            "logic constraint,",
-            font="Georgia", slant="ITALIC",
-            font_size=15, color=Paper.accent,
-        )
-        where_label2 = Text(
-            "in Python.",
-            font="Georgia", slant="ITALIC",
-            font_size=15, color=Paper.accent,
-        )
-        where_label3 = Text(
-            "across fields.",
-            font="Georgia", slant="ITALIC",
-            font_size=15, color=Paper.accent,
-        )
-        where_label_grp = VGroup(where_label, where_label2,
-                                 where_label3).arrange(
-            DOWN, aligned_edge=LEFT, buff=0.06,
-        )
+        where_label_grp = VGroup(
+            Text("logic constraint,", font="Georgia", slant="ITALIC",
+                 font_size=15, color=Paper.accent),
+            Text("in Python.", font="Georgia", slant="ITALIC",
+                 font_size=15, color=Paper.accent),
+            Text("across fields.", font="Georgia", slant="ITALIC",
+                 font_size=15, color=Paper.accent),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.06)
         where_label_grp.next_to(where_box, RIGHT, buff=0.3)
         self.play(FadeIn(where_box, run_time=0.5),
                   FadeIn(where_label_grp, run_time=0.5))
-        self.wait(2.2)
+        self.wait(2.0)
 
-        # Fade the inline where_label, swap to the punchline pair.
+        # Punchline pair on the right side — JSON Schema vs Python.
         self.play(FadeOut(where_label_grp, run_time=0.35))
-
-        # Right-side caption: JSON Schema cannot say this.
         impossible = Text(
-            "JSON Schema cannot",
-            font="Georgia", font_size=20, color=Paper.bad,
+            _spaced("JSON Schema cannot"),
+            font="Georgia", weight="BOLD", font_size=20, color=Paper.bad,
         )
         impossible2 = Text(
-            "express this constraint.",
-            font="Georgia", font_size=20, color=Paper.bad,
+            _spaced("express this constraint."),
+            font="Georgia", weight="BOLD", font_size=20, color=Paper.bad,
         )
         impossible_grp = VGroup(impossible, impossible2).arrange(
             DOWN, buff=0.08,
         )
         impossible_grp.move_to(np.array([4.4, 0.5, 0]))
         self.play(FadeIn(impossible_grp, shift=UP * 0.08, run_time=0.55))
-        self.wait(2.0)
-        # And the Python equivalent statement
+        self.wait(1.8)
         ours = Text(
-            "Predicates are Python.",
-            font="Georgia", slant="ITALIC", font_size=22,
-            color=Paper.accent,
+            _spaced("Predicates are Python."),
+            font="Georgia", slant="ITALIC", weight="BOLD",
+            font_size=22, color=Paper.accent,
         )
         ours.next_to(impossible_grp, DOWN, buff=0.4)
         self.play(FadeIn(ours, shift=UP * 0.06, run_time=0.5))
-        self.wait(3.2)
+        self.wait(2.8)
 
         # Mention "fields can reference Python program state, too" — fast.
         bonus = Text(
@@ -915,13 +1330,13 @@ class FullVideoV2(Scene):
         )
         bonus.to_edge(DOWN, buff=0.45)
         self.play(FadeIn(bonus, shift=UP * 0.06, run_time=0.5))
-        self.wait(3.6)
+        self.wait(2.8)
 
         # Clean.
-        self.play(FadeOut(VGroup(title, aria_head, aria_code, where_box,
-                                  impossible_grp, ours,
-                                  bonus, gi_frame, gi_label,
-                                  combat_chips), run_time=0.5))
+        self.play(FadeOut(VGroup(
+            title, aria_code, where_box, impossible_grp, ours, bonus,
+            outer_label, outer_tabs, subbar_state["current"], aria_focus,
+        ), run_time=0.5))
 
     # ======================================================================
     # PAGE 5 — model authors its own primitive → thesis
@@ -983,20 +1398,40 @@ class FullVideoV2(Scene):
         self.play(FadeIn(switch_label, run_time=0.35))
         self.wait(0.5)
 
-        # Source materialises.
+        # Source materialises — syntax-highlighted to match the rest.
         anchor_src = np.array([-3.4, 0.7, 0])
-        source_lines = [
-            ("@program", Paper.accent),
-            ("def quadratic_solver():", Paper.ink),
-            ("    a     = yield gen.integer(-9, 9)", Paper.ink),
-            ("    b     = yield gen.integer(-9, 9)", Paper.ink),
-            ("    c     = yield gen.integer(-9, 9)", Paper.ink),
-            ("    root1 = yield gen.integer(-9, 9)", Paper.ink),
-            ("    root2 = yield gen.integer(-9, 9)", Paper.ink),
-            ("    return {'a': a, 'b': b, 'c': c,", Paper.ink),
-            ("            'roots': [root1, root2]}", Paper.ink),
+        ACC = Paper.accent
+        KW  = Paper.accent_soft
+        FN  = Terminal.amber
+        ID  = Paper.ink
+        DIM = Paper.ink_soft
+        NUM = Terminal.blue
+        STR = Paper.good
+        source_rich = [
+            [("@program", ACC)],
+            [("def ", KW), ("quadratic_solver", FN), ("():", DIM)],
+            [("    a     = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+            [("    b     = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+            [("    c     = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+            [("    root1 = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+            [("    root2 = ", ID), ("yield ", KW),
+             ("gen.integer", FN), ("(", DIM),
+             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+            [("    return ", KW),
+             ("{", DIM), ("'a'", STR), (": a, ", ID),
+             ("'b'", STR), (": b, ", ID), ("'c'", STR), (": c,", ID)],
+            [("            ", ID),
+             ("'roots'", STR), (": [root1, root2]", ID), ("}", DIM)],
         ]
-        source = _code_block(source_lines, anchor=anchor_src,
+        source = _rich_block(source_rich, anchor=anchor_src,
                              line_height=0.30, font_size=13)
         self.play(LaggedStart(
             *[FadeIn(ln, shift=LEFT * 0.08) for ln in source],
@@ -1028,10 +1463,15 @@ class FullVideoV2(Scene):
         self.play(FadeIn(done_t, shift=UP * 0.05, run_time=0.45))
         self.wait(3.4)
 
-        # Honest-scope footnote (small, brief)
+        # Capability footnote. Predicate-bound bodies (via `where=`) are
+        # shipped as of commit 6473880 — PROGRAM_SOURCE_GRAMMAR admits
+        # `where=<lib_predicate>(<bound_args>)` clauses, and the host
+        # library at src/orate/meta_predicates.py exposes is_prime,
+        # digit_sum_eq, lt, gt, equivalent_under, factors_to (13 unit
+        # tests green). The earlier "on the roadmap" caveat is obsolete.
         footnote = Text(
-            "(today: typed schema. predicate-bound bodies on the roadmap.)",
-            font="Georgia", slant="ITALIC", font_size=11,
+            "shipped: predicate-bound bodies via where=",
+            font="Georgia", slant="ITALIC", font_size=12,
             color=Paper.mute,
         )
         footnote.to_edge(DOWN, buff=0.35)
@@ -1043,17 +1483,19 @@ class FullVideoV2(Scene):
                                   compile_note, usage, done_t, footnote),
                           run_time=0.45))
 
-        # Beat 5.C — thesis card.
+        # Beat 5.C — thesis card. Letter-tracked headline; mute setup
+        # lines stay at default tracking.
         thesis = VGroup(
             Text("Structured output constrained the shape.",
                  font="Georgia", font_size=24, color=Paper.ink_soft),
             Text("Tool calling constrained the side effect.",
                  font="Georgia", font_size=24, color=Paper.ink_soft),
-            Text("orate lets the model enforce",
-                 font="Georgia", font_size=30, color=Paper.ink),
-            Text("the legality of its own thought.",
-                 font="Georgia", slant="ITALIC", font_size=30,
-                 color=Paper.accent),
+            Text(_spaced("orate lets the model enforce", n=1),
+                 font="Georgia", weight="BOLD",
+                 font_size=30, color=Paper.ink),
+            Text(_spaced("the legality of its own thought.", n=1),
+                 font="Georgia", slant="ITALIC", weight="BOLD",
+                 font_size=30, color=Paper.accent),
         ).arrange(DOWN, buff=0.26, aligned_edge=LEFT)
         thesis.move_to(ORIGIN)
         self.play(LaggedStart(

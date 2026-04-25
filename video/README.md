@@ -18,16 +18,29 @@ complete ~2:30 pitch in five "pages":
 | 5 | model authors its own primitive → thesis | 2:15–2:30 |
 
 Aesthetic: D1 paper throughout. The two load-bearing visuals on Page 4
-are (a) the live grammar-indicator pill row that physically reshapes
-when `@enter_combat` fires, and (b) the highlight on Aria's
-`where=lambda d: ...` cross-field predicate — captioned as *"logic
-constraint, in Python — across fields"* to underline that JSON Schema
-literally cannot express this.
+are (a) the **nested-tabs grammar indicator** — outer
+`[ narrative | combat ]` and a subbar `[ narration | roll | meta ]`
+that bolds the active leaf on every emission, then reshapes to
+`[ aria_turn | borin_turn | hooded_figure_turn ]` when
+`@enter_combat` fires — and (b) the highlight on Aria's
+`where=lambda d: ...` cross-field predicate after pulling `aria_turn`
+out to the left and folding the program definition open. The
+captions read *"logic constraint, in Python — across fields"* and
+*"JSON Schema cannot express this constraint. Predicates are
+Python."* — together they pin the moment.
 
 The script targets **iterative reveals** rather than dump-and-hold —
 text appears, holds for the read, then transitions. The "Hard to write
 programs around" → "Lets us write programs around" flip is one such
-transition; the grammar-pill reshape on `@enter_combat` is another.
+transition; the grammar-tab reshape on `@enter_combat` is another;
+"Where's *the logic* in that?" → "the logic" docking up to the
+top-right header is a third.
+
+Code blocks in v2 are syntax-highlighted (decorator / keyword /
+function / identifier / string / number / punctuation each get their
+own colour, drawn from the Paper and Terminal palettes). Bolded
+display headlines use thin-space tracking (U+2009 between glyphs) so
+the terracotta serif doesn't read cramped at 1080p.
 
 ## Render
 
@@ -82,19 +95,27 @@ tighter reveal/hide pacing).
 - **`stream_tokens` wrap is brittle past one line.** Call `.newline()`
   at natural breaks. Used by the LLMProtagonist component, not the v2
   scene proper (v2 uses static code blocks for clarity).
-- **Page 4 narration as text rather than streamed tokens.** The
-  `@narrate` leaf exists in `examples/d20/dice.py` but its body
-  grammar (`gen.string(max_len=120)`) compiles to a pathological
-  matcher that hangs Qwen-7B. Until that's fixed (recursive `chars*`
-  with post-sample length cap), the video shows narration as text.
+- **Page 4 narration is rendered as static text rather than streamed
+  tokens.** The runtime now sustains `gen.string` body grammars at
+  speed (commit `4da326a` made the body grammar a recursive `chars*`
+  rule — `@narrate` runs in ~2s for 100 chars vs. the prior 6+ minute
+  hang). v2 still shows narration as static text *for visual clarity*
+  — typewriter streaming inside the trace area would compete with
+  the grammar tab indicator at the top. Capability-wise, streaming is
+  available; this is an aesthetic choice, not a workaround.
 - **Page 5 meta-authorship body** in the video shows an idealised
   `quadratic_solver` body using `gen.integer`. The real Qwen-7B trace
   authored a body using `gen.boolean()` (smallest grammar — model
   picks the cheapest path). See
   `bench/results/act4_meta_finisher_2026-04-25_1515.md` for the
-  honest trace; the video idealises it for visual clarity. A small
-  on-screen footnote *"(today: typed schema. predicate-bound bodies
-  on the roadmap.)"* keeps the scope honest.
+  honest trace; the video idealises it for visual clarity. The
+  on-screen footnote *"shipped: predicate-bound bodies via where="*
+  reflects commit `6473880` — `PROGRAM_SOURCE_GRAMMAR` now admits
+  `where=<lib_predicate>(<bound_args>)` clauses, with the host
+  predicate library at `src/orate/meta_predicates.py` (six
+  predicates: `is_prime`, `digit_sum_eq`, `lt`, `gt`,
+  `equivalent_under`, `factors_to`; 13 unit tests green). The earlier
+  *"on the roadmap"* caveat is obsolete.
 - **Aria's `aria_turn` source on Page 4** is rendered directly in the
   scene file as a code-text mobject — it does NOT match
   `examples/d20/characters.py` literally (the on-disk character uses a
