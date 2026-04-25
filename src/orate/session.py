@@ -612,8 +612,11 @@ class Session:
             return []
 
         # Predicate verification: re-run the program body against the
-        # parsed args, checking each yield's where=/options/range.
-        verify_error = self._verify_program_emission(entry.fn, args)
+        # parsed args, checking each yield's where=/options/range. Also
+        # captures the body's ``return`` value — this is what client-
+        # resolved tool calls (like ``@roll``) use to ship a result back
+        # into the KV after predicate-checking the model's args.
+        verify_error, returned = self._verify_program_emission(entry.fn, args)
         if verify_error is not None:
             self.engine.append(
                 f"\n[session: rejected — {verify_error}. Retry the call.]\n"
@@ -626,7 +629,14 @@ class Session:
                 )
             ]
 
-        result = {"emitted_args": body_text, "parsed": args}
+        # If the program body returned a value, that's the resolved tool
+        # result — surface it to the model and the client. Otherwise we
+        # fall back to the (parsed-args, body-text) shape used by purely
+        # declarative programs like @algebra_step.
+        if returned is not None:
+            result = returned
+        else:
+            result = {"emitted_args": body_text, "parsed": args}
         self.engine.append(f" → {_serialize_result(result)}\n")
 
         events: list[Event] = [ProgramInvoked(name=name, args=args, result=result)]
@@ -645,33 +655,47 @@ class Session:
         self,
         fn: Callable[..., ProgramInvocation],
         parsed_args: tuple,
-    ) -> str | None:
+    ) -> tuple[str | None, Any]:
         """Drive the @program's body against ``parsed_args``, predicate-checking.
 
-        Returns ``None`` on success, or a human-readable error describing
-        which yield rejected which value. The body is run *as a generator*
-        — at each yield we inspect the ``Gen`` spec, check the
-        corresponding parsed arg against options/range/predicate, then
-        send the parsed value back so subsequent yields' closures see it.
+        Returns ``(error, return_value)``:
 
-        Programs with parameters (no zero-arg invocation possible) are
-        skipped — verification is opt-in via shape, and the demo
-        programs are all parameterless.
+          * ``error`` — None on success, else a human-readable string
+            describing which yield rejected which value.
+          * ``return_value`` — the body's ``return`` value (captured from
+            ``StopIteration.value``). This is the result the runtime
+            injects back into the KV as the call's resolved tool result.
+            Programs that don't return anything (or are skipped because
+            of zero-arg-invocation TypeError) yield ``None`` here, in
+            which case the caller falls back to the parsed-args result.
+
+        The body is run *as a generator* — at each yield we inspect the
+        ``Gen`` spec, check the corresponding parsed arg against
+        options/range/predicate, then send the parsed value back so
+        subsequent yields' closures see it. The body can keep running
+        Python after its last yield; whatever it returns is the
+        resolver's result. This is the load-bearing piece for true
+        client-resolved tool calls — e.g. ``@roll`` predicate-checks
+        the (skill, dc) args via yields, then computes ``random.randint``
+        and returns ``{success: ..., d20: ...}``, which the model sees
+        on the next sample.
         """
         try:
             invocation = fn()
         except TypeError:
-            return None  # program has params; nothing to verify here
+            return None, None  # program has params; nothing to verify
 
         body_iter = invocation.body(*invocation.args, **invocation.kwargs)
         sent: object = None
         idx = 0
+        return_value: Any = None
         while True:
             try:
                 spec = (
                     body_iter.send(sent) if sent is not None else next(body_iter)
                 )
-            except StopIteration:
+            except StopIteration as stop:
+                return_value = stop.value
                 break
             if isinstance(spec, ProgramInvocation):
                 # Flavor-B sub-program yields aren't materialised in the
@@ -683,14 +707,14 @@ class Session:
                 sent = None
                 continue
             if idx >= len(parsed_args):
-                return f"yield #{idx} has no parsed value to check"
+                return f"yield #{idx} has no parsed value to check", None
             value = parsed_args[idx]
             err = _check_value_against_spec(spec, value, idx)
             if err is not None:
-                return err
+                return err, None
             sent = value
             idx += 1
-        return None
+        return None, return_value
 
     def _handle_make_new_program(self, args_text: str) -> list[Event]:
         """The bootstrap: switch grammars, sample source, register, continue."""

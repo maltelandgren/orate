@@ -359,20 +359,65 @@ def _extract_yields(fn: ast.FunctionDef) -> list[ast.Call]:
     if not body:
         raise BodyGrammarError(f"function {fn.name!r}: body is empty after docstring")
 
-    *assigns, last = body
+    *body_stmts, last = body
     if not isinstance(last, ast.Return):
         raise BodyGrammarError(
             f"function {fn.name!r}: last statement must be `return`; got {type(last).__name__}"
         )
-    yields: list[ast.Call] = []
-    for i, stmt in enumerate(assigns):
-        yields.append(_check_straight_line_assign(fn.name, stmt, i))
 
-    # Belt-and-suspenders: reject any disallowed statement/expression
-    # anywhere under the function (catches, e.g., a `yield from` hidden
-    # inside a tuple-Assign on the RHS).
+    # Reject control flow / nested defs first so the error message points
+    # at e.g. "If" rather than the more confusing "yield in resolver"
+    # secondary error you'd get if the yield happened to be inside the
+    # branch body.
     _check_no_disallowed_nodes(fn)
+
+    # Walk the body. Yield-assigns contribute to the call-site grammar;
+    # plain Python statements after the yields run server-side as
+    # ordinary code at predicate-verification time. The yields must come
+    # first, in order, and define the call grammar — but a leaf can
+    # follow them with arbitrary straight-line Python that produces the
+    # resolver's return value (e.g. ``@roll`` rolls a d20 after the
+    # (skill, dc) yields predicate-check; ``random.randint`` is a plain
+    # Call statement, not a yield).
+    yields: list[ast.Call] = []
+    seen_non_yield = False
+    for i, stmt in enumerate(body_stmts):
+        if _is_yield_assign(stmt):
+            if seen_non_yield:
+                raise BodyGrammarError(
+                    f"{fn.name}: yield-assign at statement #{i} comes after a "
+                    "non-yield statement; all yields must precede the resolver code"
+                )
+            yields.append(_check_straight_line_assign(fn.name, stmt, i))
+        else:
+            seen_non_yield = True
+            # Resolver code: control flow already rejected above; here we
+            # just guard against yields buried inside a non-yield-assign
+            # statement (would be weird but legal Python).
+            _check_no_yields_in_resolver(fn.name, stmt, i)
+
     return yields
+
+
+def _is_yield_assign(stmt: ast.stmt) -> bool:
+    """True if ``stmt`` is ``<name> = yield <expr>`` (or ``yield from``)."""
+    if not isinstance(stmt, ast.Assign):
+        return False
+    return isinstance(stmt.value, ast.Yield | ast.YieldFrom)
+
+
+def _check_no_yields_in_resolver(fn_name: str, stmt: ast.stmt, index: int) -> None:
+    """Resolver statements must not contain yields — those would mix
+    grammar-bound emission with server-side computation in confusing
+    ways. The yield-assigns above this point are the grammar contract;
+    statements past them are pure Python.
+    """
+    for node in ast.walk(stmt):
+        if isinstance(node, ast.Yield | ast.YieldFrom):
+            raise BodyGrammarError(
+                f"{fn_name}: resolver statement #{index} contains a yield; "
+                "yields must precede the resolver code in a leaf @program"
+            )
 
 
 def _check_straight_line_assign(fn_name: str, stmt: ast.stmt, index: int) -> ast.Call:
