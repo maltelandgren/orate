@@ -80,18 +80,17 @@ attack = yield gen.integer(1, 20,
 
 Dense and visual, minimal voice. Split screen:
 - **Left:** unfolding D&D session as a sequence of `@-calls`
-- **Right:** the active grammar — narrative `narrate | roll | enter_combat`, then combat `aria_attack | borin_attack | hooded_figure_attack | exit_combat`
+- **Right:** the active grammar — narrative `roll | enter_combat`, then combat `aria_attack | borin_attack | hooded_figure_attack | exit_combat`
 - **Bottom:** KV tokens accumulating, never reset
 
-Sequence (every emission is a real @-call — no free text, no prose
-prediction):
+Sequence (every emission is a real @-call):
 
-1. **0:55** — `@narrate("…")` × 1. The model writes one short sentence under a string grammar.
+1. **0:55** — *[Narration placeholder.]* In the final cut, voiceover or a manim-rendered text card describes the tavern as the party enters. **The `@narrate(...)` leaf exists** in `examples/d20/dice.py` and would normally fill this beat — but `gen.string(max_len=120)` currently compiles to a pathological grammar (one mandatory char + 119 optional chars in sequence; see `body_grammar.py:_fragment_string`). Sampling under that hangs Qwen-7B. Two clean fixes deferred to post-submission: (a) recursive `chars ::= char chars | ""` rule with the length cap enforced post-sample, or (b) replace the body with `gen.choice([...])` over a phrase library. Neither is in the way of the rest of Act 3.
 2. **1:00** — `@roll(perception, 13)`. Client-resolved tool call: the runtime rolls a d20 server-side, injects `→ {"d20": 17, "success": true}` into the KV, the model continues.
-3. **1:10** — `@narrate("…")` reacting to the roll result.
+3. **1:10** — *[Narration placeholder reacting to the roll, same treatment as beat 1.]*
 4. **1:20** — `@enter_combat(hooded_figure)`. **Mode transition.** The outer grammar swaps from narrative tools to combat tools, atomically, on the same KV.
 5. **1:30** — Round robin under combat-mode grammar: `@hooded_figure_attack(...)`, `@aria_attack(...)`, `@borin_attack(...)`. Each one's body grammar is derived from that character's @program (action set, target list, damage cap). Brief cutaway: flash the three program definitions side-by-side — *"this is all it takes."*
-6. **1:45** — `@exit_combat(victory)`. Mode flips back. `@narrate("…")` closes the scene.
+6. **1:45** — `@exit_combat(victory)`. Mode flips back. *[Narration placeholder closes the scene.]*
 
 One voiceover line, placed around 1:40:
 
@@ -101,7 +100,9 @@ Visual emphasis: when the per-character programs flash on screen,
 make their tininess the point. ~6 lines each. The grammar that binds
 the model's combat tokens *was the model's stat sheet a moment ago.*
 
-Demo runner: [`examples/d20/act3_full_demo.py`](../examples/d20/act3_full_demo.py).
+Demo runner: [`examples/d20/act3_full_demo.py`](../examples/d20/act3_full_demo.py)
+— produces a clean 15s trace of beats 2–6 (no narration). Beat 1 / 3
+/ 6 are filled in post-production until the `gen.string` fix lands.
 
 ## Act 4 — Legal steps only (1:55–2:55)
 
