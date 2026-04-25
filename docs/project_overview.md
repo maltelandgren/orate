@@ -16,6 +16,8 @@ None of them admit *value-level* constraints. JSON Schema can say "int between 0
 
 orate folds the three problems into one mechanism: a generator whose yields are decision points, evaluated against grammar-constrained decoding at the logit-mask level on a single persistent KV. The same `yield` is structured output, tool call, sub-agent handoff. The same `where=` predicate gates all of them.
 
+This is why orate is local-first by design, not by accident. Operating at the logit-mask level — narrowing the model's next-token distribution *before* the sampler runs — requires controlling the inference stack (llama-cpp + XGrammar here). API-backed models can ship JSON mode and tool schemas, but their constraints fire *after* a token has been emitted; the only recovery is retry-and-validate. That's the shape of solution orate exists to replace: every retry pays the prefix cost again, every extra model call is a place the constraint silently softened, and a `where=` predicate that's a closure over earlier yields can't even be expressed as a re-prompt. Local inference is the cost of paying once and being right.
+
 ## The primitive
 
 A `@program`-decorated Python generator. At each `yield gen.X(...)` the runner inspects the spec, builds a GBNF fragment, masks the logits, samples, sends the value back into the generator. The spec vocabulary:
@@ -139,7 +141,7 @@ A few honest places:
 
 1. **Predicate verification on closures isn't free.** When the third yield's `where=` closes over the first two, witness enumeration can't fire and the runtime falls back to syntactic-grammar sampling + post-hoc closure check. The 11 rejections in the benchmark are real tokens spent. We have a story for this — JIT grammar segmentation should compile cross-yield predicates into a fused grammar where possible — but today the rejection loop is the honest fallback.
 2. **`PROGRAM_SOURCE_GRAMMAR` is a small Python subset.** Straight-line `var = yield gen.method(...)` then `return`. No branches. No loops. No `yield from`. The model can author tools but only of the leaf shape. Composers it doesn't write yet. This is fine for the four-act story; it'll need to grow for richer self-authoring.
-3. **Local-first by design.** The truest form of orate constrains inference at the logit level, which means a controlled inference stack (llama-cpp + XGrammar). API-backed engines can do something structural (JSON mode + retry) but not fundamental. If you want this against Claude or GPT, you'd be writing a different library.
+3. **Local-only scope.** The logit-level contract requires a controlled inference stack (llama-cpp + XGrammar here) — see the intent section above for *why*. If you want grammar-bound decoding against Claude or GPT, you'd be writing a different library; the structural shape is not the same problem.
 
 ## Repo layout, in one breath
 
