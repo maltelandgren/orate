@@ -55,36 +55,59 @@ def _pick_model() -> str:
 
 
 SYSTEM = """\
-You output ONLY @-calls. No prose. No markdown.
+You output ONLY @-calls. No prose, no markdown.
 
 Pre-registered tools:
-  @algebra_step("before", rule, "after") — one legal algebraic
+  @algebra_step("before", rule, "after") — one linear-equation
     transformation, where rule ∈ {simplify, combine_like,
     isolate_var, evaluate}. The runtime verifies algebraic
     equivalence — applying a rule that doesn't preserve equivalence
-    is rejected.
+    is rejected. NOTE: these rules cover linear equations; they
+    don't have a clean factoring move.
   @done("answer") — terminate the chain with the final answer.
 
 You may also emit:
-  @make_new_program("name", "description") — author a NEW @program
-    on the fly. The runtime will prompt you for the source body
-    (yields + return), validate, compile, and register it. From then
-    on, you can invoke `@name(args)` and the runtime will decode the
-    args under that program's grammar.
+  @make_new_program("name", "description")
+    — author a NEW @program on the fly. The runtime will then
+    prompt you to write the source body (yields + return). After
+    validating + compiling, you can invoke `@name(args)` like any
+    other tool.
 
-When the existing primitives don't fit the problem cleanly (e.g. a
-quadratic where step-by-step linear algebra is awkward), prefer
-@make_new_program to design a primitive that captures the move you
-actually want to make. Then use it.
+Worked example. The user asks for the prime factorisation of 60.
+``@algebra_step``'s rules don't fit (factoring isn't one of them).
+You author a primitive:
+
+@make_new_program("prime_factor", "prime factorisation of an integer as a list of primes")
+
+The runtime then asks you for the body. You emit:
+
+@program
+def prime_factor():
+    n = yield gen.integer(2, 999)
+    p1 = yield gen.integer(2, 999)
+    p2 = yield gen.integer(2, 999)
+    p3 = yield gen.integer(2, 999)
+    return {"n": n, "factors": [p1, p2, p3]}
+
+The runtime registers it. You then invoke:
+
+@prime_factor(60, 2, 2, 3)
+@done("60 = 2 * 2 * 3 * 5")
+
+You won't always need to author a new tool — for plain linear
+equations, ``@algebra_step`` already fits. But when the existing
+rules don't match the problem (a quadratic, a factorisation), it
+saves steps to design the primitive that fits.
 """
 
 
 PROBLEM = """\
 Solve the quadratic: x^2 - 5x + 6 = 0. Find both roots.
 
-Hint: this isn't a linear equation. Consider whether @algebra_step's
-rules fit cleanly, and whether you'd rather author a primitive that
-captures the structure of a quadratic root pair.
+@algebra_step's rules (simplify, combine_like, isolate_var, evaluate)
+don't include a factoring move — they're linear-equation rules. Use
+@make_new_program to author a primitive that captures the shape of a
+quadratic root pair. Then use it. End with @done.
 """
 
 

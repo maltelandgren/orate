@@ -1,14 +1,23 @@
-"""Act-3 demo (full): narration + @roll + @enter_combat + 3 NPC turns + @exit_combat.
+"""Act-3 demo: @roll + @enter_combat + 3 NPC turns + @exit_combat.
 
-The narrative-mode session has free text, ``@roll``, and ``@enter_combat``
-visible. Combat mode swaps to the three composed NPC programs +
-``@exit_combat``. One KV from start to finish; six grammar transitions;
-two mode switches; no API hops.
+The narrative-mode session has ``@roll`` and ``@enter_combat`` visible.
+Combat mode swaps to the three composed NPC programs + ``@exit_combat``.
+One KV from start to finish; two mode switches; no API hops.
 
 Each character's program is its own stat sheet — the action set, target
 list, and damage cap come from the program body, not a central switch.
 The combat-mode outer grammar is built from those programs' call-site
 grammars, exposed only when the session is in "combat" mode.
+
+Note on @narrate: a ``narrate`` leaf wrapping ``gen.string(max_len=120)``
+is also defined in :mod:`d20.dice` and could in principle interleave
+prose with the tool calls. Today the long-string body grammar compiles
+to a slow XGrammar matcher that hangs on Qwen-7B. The clean path is
+either (a) shrink the string yield to ~30 chars, or (b) expose
+narration as a ``gen.choice`` over a fixed phrase library. Pick when
+re-enabling. For the canonical Act-3 trace the structural beat
+(narrative tools → mode switch → combat composed-NPC grammars → mode
+switch back) is what the visual needs; narration is decoration.
 
 Run:
     .venv/bin/python examples/d20/act3_full_demo.py
@@ -30,7 +39,7 @@ from d20.characters import (  # noqa: E402
     exit_combat,
     hooded_figure_attack,
 )
-from d20.dice import narrate, roll  # noqa: E402
+from d20.dice import roll  # noqa: E402
 from orate import (  # noqa: E402
     FreeText,
     NewProgramRegistered,
@@ -52,16 +61,14 @@ def _pick_model() -> str:
 
 
 SYSTEM = """\
-You output ONLY @-calls. Every emission is one of the tools below. No
-markdown, no commentary, no plain text — narration itself is a tool
-(@narrate).
+You output ONLY @-calls. No prose, no markdown.
 
 Tools available in NARRATIVE mode:
-  @narrate("...")              — one short sentence describing what happens.
-  @roll(skill, dc)              — d20 skill check; the runtime rolls and
-                                  returns the result. skill ∈ {perception,
-                                  stealth, athletics, persuasion, insight,
-                                  investigation}. dc ∈ [5, 25].
+  @roll(skill, dc)              — d20 skill check; the runtime rolls
+                                  and returns the result. skill ∈
+                                  {perception, stealth, athletics,
+                                  persuasion, insight, investigation}.
+                                  dc ∈ [5, 25].
   @enter_combat(initiator)     — begin combat. initiator ∈ {aria,
                                   hooded_figure, borin}.
 
@@ -73,33 +80,25 @@ Tools available in COMBAT mode (visible only after @enter_combat):
 
 Worked example:
 
-@narrate("The tavern is dim and smells of woodsmoke.")
 @roll(perception, 13)
-@narrate("Aria spots a glint of metal beneath the hooded figure's cloak.")
 @enter_combat(hooded_figure)
 @hooded_figure_attack(dagger, aria, 3)
 @aria_attack(longsword, hooded_figure, 5)
-@borin_attack(warhammer, hooded_figure, 7)
+@borin_attack(warhammer, hooded_figure, 6)
 @exit_combat(victory)
-@narrate("The figure crumples; the tavern falls silent.")
 """
 
 
 PROBLEM = """\
-Run this scene as a sequence of @-calls. Output nothing else.
-
 Setup: Aria the bard and Borin the dwarven cleric enter the Wandering
-Goose tavern. A hooded figure sits in the back booth with a hand on
-a hilt.
+Goose tavern. A hooded figure sits in the back booth with a hand on a
+hilt.
 
-The scene to run:
-1. @narrate(...) — describe the tavern as the party enters.
-2. @roll(perception, 13) — Aria sizes up the hooded figure.
-3. @narrate(...) — react to the roll result.
-4. @enter_combat(hooded_figure) — the figure draws.
-5. @hooded_figure_attack, @aria_attack, @borin_attack — one round.
-6. @exit_combat(victory).
-7. @narrate(...) — one closing sentence.
+Run this scene as @-calls:
+1. @roll(perception, 13) — Aria sizes up the hooded figure.
+2. @enter_combat(hooded_figure) — the figure draws.
+3. @hooded_figure_attack, @aria_attack, @borin_attack — one round each.
+4. @exit_combat(victory).
 """
 
 
@@ -132,11 +131,11 @@ def main() -> None:
 
     session = Session(
         engine=engine,
-        programs={"narrate": narrate, "roll": roll, "enter_combat": enter_combat},
+        programs={"roll": roll, "enter_combat": enter_combat},
         system=SYSTEM,
-        max_turn_tokens=4096,
-        max_calls_per_turn=20,
-        allow_free_text=False,  # narration is itself a tool — every emission is structured
+        max_turn_tokens=2048,
+        max_calls_per_turn=8,  # one round + opener + closer
+        allow_free_text=False,
     )
     # Combat-mode programs (visible only inside combat).
     session.register("aria_attack", aria_attack, mode="combat")
@@ -146,7 +145,7 @@ def main() -> None:
 
     print()
     print("=" * 72)
-    print("ACT 3 — narration + @roll + combat. One KV, two mode switches.")
+    print("ACT 3 — narrative tools → combat (mode switch) → narrative.")
     print("=" * 72)
     print(PROBLEM)
     print("-" * 72)
