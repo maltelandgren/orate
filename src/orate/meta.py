@@ -70,11 +70,16 @@ dict-expr ::= "{" dict-pair dict-pair-rest "}"
 dict-pair-rest ::= ", " dict-pair dict-pair-rest | ""
 dict-pair ::= str-lit ": " ident
 gen-call ::= choice-call | int-call | str-call | bool-call
-choice-call ::= "gen.choice([" str-lit str-lit-rest "])"
+choice-call ::= "gen.choice([" str-lit str-lit-rest "]" where-opt ")"
 str-lit-rest ::= ", " str-lit str-lit-rest | ""
-int-call ::= "gen.integer(" int-lit ", " int-lit ")"
-str-call ::= "gen.string(max_len=" int-lit ")"
+int-call ::= "gen.integer(" int-lit ", " int-lit where-opt ")"
+str-call ::= "gen.string(max_len=" int-lit where-opt ")"
 bool-call ::= "gen.boolean()"
+where-opt ::= ", where=" pred-call | ""
+pred-call ::= pred-name "(" pred-args ")"
+pred-name ::= "is_prime" | "digit_sum_eq" | "lt" | "gt" | "equivalent_under" | "factors_to"
+pred-args ::= ident pred-args-rest | ""
+pred-args-rest ::= ", " ident pred-args-rest | ""
 ident ::= ident-start ident-rest
 ident-start ::= [a-z_]
 ident-rest ::= ident-char ident-rest | ""
@@ -239,7 +244,7 @@ def _validate_assign(
     if value.value is None:
         errors.append(f"statement #{index}: yield must have a value")
         return
-    _validate_gen_call(value.value, index, errors)
+    _validate_gen_call(value.value, index, bound, errors)
 
     # Bind even if there were errors inside the call; that way later
     # statements referencing it don't double-fire "unbound name".
@@ -247,7 +252,12 @@ def _validate_assign(
         bound.add(target.id)
 
 
-def _validate_gen_call(node: ast.expr, index: int, errors: list[str]) -> None:
+def _validate_gen_call(
+    node: ast.expr,
+    index: int,
+    bound: set[str],
+    errors: list[str],
+) -> None:
     if not isinstance(node, ast.Call):
         errors.append(f"statement #{index}: yield must wrap a call; got {type(node).__name__}")
         return
@@ -272,18 +282,108 @@ def _validate_gen_call(node: ast.expr, index: int, errors: list[str]) -> None:
 
     # Per-method argument-shape checks.
     if method == "choice":
-        _check_choice_args(node, index, errors)
+        _check_choice_args(node, index, bound, errors)
     elif method == "integer":
-        _check_integer_args(node, index, errors)
+        _check_integer_args(node, index, bound, errors)
     elif method == "string":
-        _check_string_args(node, index, errors)
+        _check_string_args(node, index, bound, errors)
     elif method == "boolean":
         _check_boolean_args(node, index, errors)
 
 
-def _check_choice_args(call: ast.Call, index: int, errors: list[str]) -> None:
+# Allowed predicate names — meta-authored programs may reference these
+# in ``where=`` clauses. Kept in sync with ``meta_predicates.META_PREDICATES``.
+_ALLOWED_PREDICATES = frozenset({
+    "is_prime",
+    "digit_sum_eq",
+    "lt",
+    "gt",
+    "equivalent_under",
+    "factors_to",
+})
+
+
+def _split_keywords(
+    call: ast.Call,
+) -> tuple[ast.keyword | None, list[ast.keyword]]:
+    """Pull out the ``where=`` keyword (if any); return (where_kw, rest)."""
+    where_kw: ast.keyword | None = None
+    rest: list[ast.keyword] = []
+    for kw in call.keywords:
+        if kw.arg == "where":
+            where_kw = kw
+        else:
+            rest.append(kw)
+    return where_kw, rest
+
+
+def _check_where_clause(
+    kw: ast.keyword | None,
+    index: int,
+    bound: set[str],
+    errors: list[str],
+) -> None:
+    """Validate an optional ``where=<pred-name>(<bound-args>)`` keyword.
+
+    The grammar admits this on any choice/integer/string yield. The
+    semantics: the model authored a closure-bound predicate to enforce
+    a *logical* property on the candidate value. The runtime resolves
+    the predicate name against ``META_PREDICATES`` at exec time and
+    invokes the resulting callable on every candidate emission.
+
+    None as input is fine — where= is optional.
+    """
+    if kw is None:
+        return
+    call = kw.value
+    if not isinstance(call, ast.Call):
+        errors.append(
+            f"statement #{index}: where= must be a predicate call like "
+            f"is_prime() or equivalent_under(rule, before); got {type(call).__name__}"
+        )
+        return
+    pred_func = call.func
+    if not isinstance(pred_func, ast.Name):
+        errors.append(
+            f"statement #{index}: where= predicate must be a bare name; "
+            f"got {type(pred_func).__name__}"
+        )
+        return
+    if pred_func.id not in _ALLOWED_PREDICATES:
+        errors.append(
+            f"statement #{index}: where= predicate {pred_func.id!r} is not in the "
+            f"library; pick one of {sorted(_ALLOWED_PREDICATES)}"
+        )
+        return
     if call.keywords:
-        errors.append(f"statement #{index}: gen.choice takes no keyword arguments")
+        errors.append(
+            f"statement #{index}: where= predicate call takes no keyword arguments"
+        )
+    for arg_idx, arg in enumerate(call.args):
+        if not isinstance(arg, ast.Name):
+            errors.append(
+                f"statement #{index}: where= predicate arg #{arg_idx} must be a "
+                f"bare name (a previously-yielded variable); got {type(arg).__name__}"
+            )
+            continue
+        if arg.id not in bound:
+            errors.append(
+                f"statement #{index}: where= predicate arg {arg.id!r} is not "
+                "bound at this point; only previously-yielded names allowed"
+            )
+
+
+def _check_choice_args(
+    call: ast.Call,
+    index: int,
+    bound: set[str],
+    errors: list[str],
+) -> None:
+    where_kw, rest = _split_keywords(call)
+    if rest:
+        errors.append(
+            f"statement #{index}: gen.choice takes no keyword arguments other than where="
+        )
     if len(call.args) != 1:
         errors.append(
             f"statement #{index}: gen.choice takes exactly one positional argument (a list)"
@@ -301,25 +401,45 @@ def _check_choice_args(call: ast.Call, index: int, errors: list[str]) -> None:
         return
     for elt in lst.elts:
         _check_str_lit(elt, index, errors, context="gen.choice option")
+    _check_where_clause(where_kw, index, bound, errors)
 
 
-def _check_integer_args(call: ast.Call, index: int, errors: list[str]) -> None:
-    if call.keywords:
-        errors.append(f"statement #{index}: gen.integer takes no keyword arguments")
+def _check_integer_args(
+    call: ast.Call,
+    index: int,
+    bound: set[str],
+    errors: list[str],
+) -> None:
+    where_kw, rest = _split_keywords(call)
+    if rest:
+        errors.append(
+            f"statement #{index}: gen.integer takes no keyword arguments other than where="
+        )
     if len(call.args) != 2:
         errors.append(f"statement #{index}: gen.integer takes exactly two positional int literals")
         return
     for arg in call.args:
         _check_int_lit(arg, index, errors, context="gen.integer bound")
+    _check_where_clause(where_kw, index, bound, errors)
 
 
-def _check_string_args(call: ast.Call, index: int, errors: list[str]) -> None:
+def _check_string_args(
+    call: ast.Call,
+    index: int,
+    bound: set[str],
+    errors: list[str],
+) -> None:
     if call.args:
         errors.append(f"statement #{index}: gen.string takes no positional arguments; use max_len=")
-    if len(call.keywords) != 1 or call.keywords[0].arg != "max_len":
-        errors.append(f"statement #{index}: gen.string requires exactly max_len=<int literal>")
+    where_kw, rest = _split_keywords(call)
+    if len(rest) != 1 or rest[0].arg != "max_len":
+        errors.append(
+            f"statement #{index}: gen.string requires exactly max_len=<int literal> "
+            "(plus an optional where=)"
+        )
         return
-    _check_int_lit(call.keywords[0].value, index, errors, context="gen.string max_len")
+    _check_int_lit(rest[0].value, index, errors, context="gen.string max_len")
+    _check_where_clause(where_kw, index, bound, errors)
 
 
 def _check_boolean_args(call: ast.Call, index: int, errors: list[str]) -> None:
@@ -425,7 +545,12 @@ def _walk_disallowed(
     node inside an allowed-looking slot (e.g. a Subscript used as a
     gen call argument). This walk is the final trap.
     """
-    known: set[str] = set(bound) | {"gen", "program"}
+    # ``known`` includes bound yield names, the gen + program globals,
+    # and the host-provided predicate library (resolved at exec time).
+    # Predicate-library callables are referenced by bare name in
+    # ``where=<name>(args)`` clauses; the disallowed-walk needs to
+    # admit them or it would reject every meta-authored predicate.
+    known: set[str] = set(bound) | {"gen", "program"} | set(_ALLOWED_PREDICATES)
     for node in ast.walk(fn):
         if isinstance(node, ast.Import | ast.ImportFrom):
             errors.append("import statements are not allowed")
@@ -442,6 +567,17 @@ def _walk_disallowed(
                 isinstance(fn_node, ast.Attribute)
                 and isinstance(fn_node.value, ast.Name)
                 and fn_node.value.id == "gen"
+            ):
+                continue
+            # Allowed call: a predicate from the host library, used
+            # exclusively as the value of a ``where=`` keyword. The
+            # earlier per-method validators already verified the call's
+            # shape (single-name predicate, all args bound); here we
+            # just recognise the pattern so it doesn't fail the
+            # "calls only to gen.<method>" trap.
+            if (
+                isinstance(fn_node, ast.Name)
+                and fn_node.id in _ALLOWED_PREDICATES
             ):
                 continue
             errors.append(f"calls are only allowed to gen.<method>; got {ast.dump(fn_node)}")
@@ -505,6 +641,15 @@ def compile_program_source(source: str) -> Callable[..., ProgramInvocation]:
         "program": program,
         "gen": gen,
     }
+    # Inject the host's predicate library so meta-authored ``where=``
+    # clauses resolve. The validator already restricted bare-name calls
+    # to predicates from this library (``_ALLOWED_PREDICATES``), so any
+    # ``where=is_prime(n)`` in the source resolves to the host's
+    # ``is_prime`` factory at exec time. Each library entry is a curried
+    # factory: calling it with the source's bound-name args returns a
+    # callable ``(candidate) -> bool`` that gen.X passes as ``where=``.
+    from orate.meta_predicates import META_PREDICATES  # noqa: PLC0415
+    sandbox_globals.update(META_PREDICATES)
     sandbox_locals: dict[str, Any] = {}
 
     try:

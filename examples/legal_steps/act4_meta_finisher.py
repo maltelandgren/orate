@@ -4,21 +4,22 @@ This is the climactic beat. The session starts with @algebra_step + @done
 pre-registered (single-equation rule-based rewriting). We pose a problem
 that doesn't fit the existing primitives well — a quadratic. The model
 recognises the gap and emits @make_new_program, authoring a structured
-emission that captures the new shape (e.g. roots of a quadratic). The
-runtime grammar-switches mid-decode, samples the source under
+emission that captures the new shape (e.g. factor pair of a quadratic).
+The runtime grammar-switches mid-decode, samples the source under
 PROGRAM_SOURCE_GRAMMAR, validates, sandbox-execs, registers, rebuilds
 the outer grammar — all on the same KV. Then the model uses the
 primitive it just defined to finish the solve.
 
-The honest scope: model-authored programs admit *typed schemas*, not
-predicate-bound bodies. The structure of the output is enforced (the
-model can't emit ill-typed args) but the mathematical correctness of
-the answer rides on the model's reasoning. That's the current shape;
-predicate-bound meta-authorship is on the JIT segmentation roadmap.
+PROGRAM_SOURCE_GRAMMAR now admits ``where=<lib_predicate>(<bound_args>)``
+clauses, so the model-authored body can carry a real logical
+constraint (e.g. ``where=factors_to(equation)``) and the runtime
+verifies it against the host's predicate library. Allowed predicate
+names live in ``src/orate/meta_predicates.py``.
 
-What the visual reveals: source materialising on screen, runtime
-compile log, then the new primitive being invoked with grammar-bound
-args. The library grew during the inference. One KV.
+What the visual reveals: source materialising on screen with a
+``where=`` clause, runtime compile log, then the new primitive being
+invoked with grammar-bound args that ALSO satisfy the predicate. The
+library grew during the inference. One KV.
 
 Run:
     .venv/bin/python examples/legal_steps/act4_meta_finisher.py
@@ -68,40 +69,42 @@ Pre-registered tools:
 
 Authoring a body — strict rules:
   * Each line is exactly: `<var> = yield gen.<method>(<literal_args>)`.
-  * The return MUST be `return {"key1": var1, "key2": var2, ...}`
-    where every var on the right side is one of the LHS names from
-    the yields above. Never invent a new name in the return.
-  * Use exactly four yields. No more, no less.
+  * The return MUST be `return {"key1": var1, ...}` where every var
+    on the right side is one of the LHS names from the yields above.
+    Never invent a new name in the return.
+  * Optionally add `where=<predicate>(<args>)` to a yield. Allowed
+    predicates: is_prime, digit_sum_eq, lt, gt, equivalent_under,
+    factors_to. Args must be names BOUND BY EARLIER yields.
 
-Worked example. User asks for the prime factorisation of 60.
-``@algebra_step``'s rules don't fit. You author a primitive:
+Worked example. User asks for "find a prime less than 100 whose digits
+sum to 10". ``@algebra_step`` doesn't fit. You author:
 
-@make_new_program("prime_factor", "an integer and three of its prime factors")
-
-Then you emit the source. Note exactly four yields and the return
-dict references only the bound names:
+@make_new_program("prime_with_sum", "a prime under 100 whose digits sum to 10")
 
 @program
-def prime_factor():
-    n = yield gen.integer(2, 999)
-    p1 = yield gen.integer(2, 99)
-    p2 = yield gen.integer(2, 99)
-    p3 = yield gen.integer(2, 99)
-    return {"n": n, "p1": p1, "p2": p2, "p3": p3}
+def prime_with_sum():
+    target = yield gen.integer(0, 99)
+    n = yield gen.integer(0, 99, where=is_prime())
+    return {"target": target, "n": n}
 
-Then invoke it:
+(The ``where=is_prime()`` clause makes the runtime reject any
+non-prime emission token-by-token. The grammar is the gate.)
 
-@prime_factor(60, 2, 2, 3)
-@done("60 = 2 * 2 * 3 * 5")
+Then invoke:
+
+@prime_with_sum(10, 19)
+@done("19")
 """
 
 
 PROBLEM = """\
-Solve the quadratic: x^2 - 5x + 6 = 0.
+Solve x^2 - 5x + 6 = 0 by factoring.
 
-@algebra_step's rules don't include factoring. Author a primitive
-with EXACTLY four yields capturing (equation_value, root1, root2,
-something_useful) and use it on this problem. End with @done.
+@algebra_step's rules don't include factoring — they're linear-
+equation moves. Use @make_new_program to author a primitive that
+captures a factor pair, with a where=factors_to(equation) clause
+so the runtime verifies the factors actually expand to the target
+polynomial. Then use it. End with @done.
 """
 
 
