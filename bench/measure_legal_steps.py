@@ -79,6 +79,14 @@ SUITE: list[Problem] = [
     Problem("eq_distribute", "3(x + 1) = 12", "x", 3, "medium"),
     Problem("eq_negative", "5 - 2x = 1", "x", 2, "medium"),
     Problem("eq_two_step", "4(x - 2) + 1 = 13", "x", 5, "hard"),
+    # Round it out to a clean 10. Each new entry is linear (within
+    # the algebra_step rule set: simplify / combine_like /
+    # isolate_var / evaluate) and chosen to either differentiate
+    # free-text (sign/distribute slips) or test the boost in retry
+    # budget.
+    Problem("eq_7x_minus_5", "7x - 5 = 16", "x", 3, "easy"),
+    Problem("eq_both_sides_b", "4x + 7 = 2x + 13", "x", 3, "medium"),
+    Problem("eq_distribute_b", "2(x - 3) = 8", "x", 7, "medium"),
 ]
 
 
@@ -162,18 +170,28 @@ You output ONLY @-calls. No markdown, no prose, no commentary.
 
 Available calls:
   @algebra_step("before", rule, "after")
-  @done("answer")
+  @done(<integer>)
 
 The runtime mathematically verifies that `after` equals `before`
 under `rule`. If not, the call is rejected.
 
-Rules: simplify, combine_like, isolate_var, evaluate.
+Rules and what each one MEANS — pick precisely:
+  simplify     — algebraic equivalence; e.g. distribute, move constants,
+                 cancel terms. RHS or LHS may still have coefficients.
+  combine_like — collect like terms together (e.g. `2x + 3x` → `5x`).
+  isolate_var  — produce an `after` whose LHS is JUST the variable,
+                 with no coefficient. e.g. `4x = 20` → `x = 5`. NOT
+                 for `4x - 8 = 12` → `4x = 20` (that's `simplify`).
+  evaluate     — reduce a numeric expression. e.g. `x = 9 / 3` → `x = 3`.
 
-Worked example — solve 2y + 4 = 18 (DIFFERENT problem; do not copy):
+The `before` and `after` strings must contain ONLY the equation
+itself — no parenthetical comments, no descriptions.
 
-@algebra_step("2y + 4 = 18", simplify, "2y = 14")
-@algebra_step("2y = 14", isolate_var, "y = 7")
-@done("y = 7")
+Worked example — pretend the equation is `7a + 5 = 26`:
+
+@algebra_step("7a + 5 = 26", simplify, "7a = 21")
+@algebra_step("7a = 21", isolate_var, "a = 3")
+@done(3)
 
 Always show your work step by step. Do not skip directly to @done.
 """
@@ -189,7 +207,7 @@ def _constrained_user_prompt(problem: Problem) -> str:
 @dataclass
 class ConstrainedRun:
     problem: str
-    answer: str | None
+    answer: object | None  # int from typed @done(int), or legacy string
     parsed_answer: int | None
     correct: bool
     wall_time_s: float
@@ -199,16 +217,27 @@ class ConstrainedRun:
     trace: list[dict] = field(default_factory=list)
 
 
-def _parse_done_answer(answer: str | None, var: str) -> int | None:
-    if not answer:
+def _parse_done_answer(answer: object, var: str) -> int | None:
+    """``done`` now takes a typed integer arg, so the answer comes
+    through as an int (or as a tuple/dict containing one). Fall back
+    to the old regex path for backwards compat with older traces."""
+    if answer is None:
         return None
-    m = re.search(rf"{re.escape(var)}\s*=\s*(-?\d+)", answer)
-    if not m:
-        return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
+    if isinstance(answer, int) and not isinstance(answer, bool):
+        return answer
+    if isinstance(answer, str):
+        m = re.search(rf"{re.escape(var)}\s*=\s*(-?\d+)", answer)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                return None
+        # Bare integer fallback.
+        try:
+            return int(answer.strip())
+        except (ValueError, AttributeError):
+            return None
+    return None
 
 
 def run_constrained(
@@ -418,8 +447,10 @@ def main() -> None:
         help="Max tokens per constrained turn (default 2048)",
     )
     parser.add_argument(
-        "--max-calls", type=int, default=10,
-        help="Max @-calls per constrained turn (default 10)",
+        "--max-calls", type=int, default=30,
+        help="Max @-calls per constrained turn (default 30). Bumped "
+             "from 10 because eq_distribute previously hit the wall "
+             "after 9 rejections; the headroom lets the model recover.",
     )
     parser.add_argument(
         "--out-dir", type=str, default=str(_REPO / "bench" / "results"),

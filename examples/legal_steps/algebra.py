@@ -34,14 +34,13 @@ from .checkers import equivalent_under
 def done():
     """Signal that the solve is complete and surface the final answer.
 
-    Calling this ends the assistant turn. The Session runner emits a
-    TurnEnded event so the client knows the chain has terminated.
+    Takes a single integer — the value of the variable. The model
+    emits ``@done(3)`` rather than a free-text string. This sidesteps
+    the regex-fragile parsing of phrases like ``'x = 3'`` vs ``'3'``;
+    the answer is just an int the bench can compare directly.
     """
-    answer = yield gen.string(
-        max_len=40,
-        description="the final answer in form 'var = number' (e.g. 'x = 3')",
-    )
-    return {"answer": answer}
+    x = yield gen.integer(-9999, 9999)
+    return {"x": x}
 
 
 @program
@@ -51,9 +50,19 @@ def algebra_step():
     Note: the choice list is inlined as a literal so the body grammar
     can extract the options. Keep in sync with ``ALGEBRA_RULES`` in
     ``checkers.py``.
+
+    The string slot for equations uses a math-only ``pattern``: digits,
+    lowercase letters (variable names), basic operators, spaces,
+    equals, and parens for distribution. This blocks the model from
+    hallucinating English-language commentary inside the ``after``
+    slot — e.g. ``"3 - 2x = 0 (subtract 5 from both sides)"`` — which
+    it would otherwise do under the default printable-ASCII char
+    class. The pattern must be a string LITERAL (the body-grammar
+    deriver scans the AST), so it's inlined verbatim in both yields.
     """
     before = yield gen.string(
-        max_len=80,
+        max_len=30,
+        pattern="[0-9a-z +\\-*/=()]",
         description="the current equation, e.g. '2x + 3y = 12'",
     )
     rule = yield gen.choice(
@@ -63,7 +72,8 @@ def algebra_step():
         ),
     )
     after = yield gen.string(
-        max_len=80,
+        max_len=30,
+        pattern="[0-9a-z +\\-*/=()]",
         description=(
             "the resulting equation, mathematically equivalent to "
             "'before' under 'rule'"
