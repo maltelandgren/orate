@@ -302,6 +302,14 @@ class Session:
         self.call_separator = call_separator
         self.registry: dict[str, _RegistryEntry] = {}
         self._active_mode: str = DEFAULT_MODE
+        # Tracks consecutive @-call rejections; reset to 0 on any
+        # successful dispatch. ``advance()`` uses this to escalate the
+        # body-sample temperature on retries: the model is locked into
+        # the same wrong answer (eq_negative on Qwen-7B is the
+        # canonical example), so deterministic retries are pointless —
+        # nudging T up gives the next sample a chance to land
+        # somewhere else in the predicate-valid region.
+        self._consecutive_rejections = 0
 
         # Bootstrap: register make_new_program built-in, plus any seeds.
         self._register_make_new_program()
@@ -313,11 +321,19 @@ class Session:
         self._rebuild_outer_grammar()
         self.engine.begin_session(system)
         # Pay XGrammar's first-compile JIT cost up front and pre-populate
-        # the engine's grammar cache with the current outer grammar.
-        # Without this, the first sample_under after the mode switch
-        # eats a one-time ~10x penalty (see bench/results/legal_steps_*).
+        # the engine's grammar cache with the current outer grammar AND
+        # every leaf's body grammar. Each body grammar is per-leaf and
+        # compiled lazily otherwise — for the legal-steps bench, that
+        # cold-compile alone was ~200s on the first @algebra_step call,
+        # masking the actual sample time. Warming all body grammars
+        # here moves that cost into Session.__init__, where it's a
+        # one-shot setup tax instead of a per-call surprise.
         # Engines that don't expose .warm() (e.g. MockEngine) fall through.
-        self._engine_warm([self._outer_grammar])
+        all_grammars = [self._outer_grammar]
+        for entry in self.registry.values():
+            if entry.body_grammar:
+                all_grammars.append(entry.body_grammar)
+        self._engine_warm(all_grammars)
         self.transcript: list[Event] = []
 
     def _engine_warm(self, grammars: list[str]) -> None:
@@ -490,6 +506,15 @@ class Session:
         calls_this_turn = 0
         while tokens_used < self.max_turn_tokens:
             remaining = self.max_turn_tokens - tokens_used
+            # Body-sample temperature escalates with consecutive
+            # rejections. Qwen-7B's logits on locked-in wrong answers
+            # (e.g. eq_negative → ``x = -2``) are heavily peaked, so
+            # T<=1.0 doesn't actually move the multinomial draw. The
+            # schedule below ramps fast — 0.0 / 0.5 / 1.0 / 1.5 / 2.0
+            # (capped) — to break out of the deterministic argmax with
+            # only a handful of rejections of headroom. Resets to 0 on
+            # any successful dispatch.
+            body_temperature = min(0.5 * self._consecutive_rejections, 2.0)
             chunk = self.engine.sample_under(
                 self._outer_grammar,
                 max_tokens=min(remaining, 256),
@@ -514,11 +539,15 @@ class Session:
                 continue
 
             # Prefix accepted. Sample the body under that leaf's own
-            # grammar, then close the call with ``)``.
+            # grammar, then close the call with ``)``. The body sample
+            # is where temperature actually matters: the outer prefix
+            # is locked once the model commits to a leaf, but the body
+            # is where the model emits the predicate-checked args.
             entry = self.registry[name]
             body_text = self.engine.sample_under(
                 entry.body_grammar,
                 max_tokens=min(remaining, 512),
+                temperature=body_temperature,
             )
             self.engine.append(")")
             tokens_used += max(1, len(body_text) // 3) + 1
@@ -618,6 +647,7 @@ class Session:
         # into the KV after predicate-checking the model's args.
         verify_error, returned = self._verify_program_emission(entry.fn, args)
         if verify_error is not None:
+            self._consecutive_rejections += 1
             self.engine.append(
                 f"\n[session: rejected — {verify_error}. Retry the call.]\n"
             )
@@ -628,6 +658,10 @@ class Session:
                     result={"rejected": True, "error": verify_error},
                 )
             ]
+
+        # Successful dispatch: reset rejection counter so the next
+        # @-call samples at T=0 again.
+        self._consecutive_rejections = 0
 
         # If the program body returned a value, that's the resolved tool
         # result — surface it to the model and the client. Otherwise we
@@ -697,6 +731,14 @@ class Session:
             except StopIteration as stop:
                 return_value = stop.value
                 break
+            except Exception as e:  # noqa: BLE001
+                # The body raised mid-iteration — most often because a
+                # meta-authored ``where=foo(args)`` resolved to a factory
+                # call with bad arity or types, and Python raised
+                # TypeError before the first yield's spec materialised.
+                # Surface as a structured rejection rather than tearing
+                # down the whole session.
+                return f"body raised at yield #{idx}: {type(e).__name__}: {e}", None
             if isinstance(spec, ProgramInvocation):
                 # Flavor-B sub-program yields aren't materialised in the
                 # outer call-site grammar; skip with an empty send.

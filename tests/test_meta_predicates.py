@@ -17,7 +17,19 @@ from orate.meta import (
     compile_program_source,
     validate_program_source,
 )
-from orate.meta_predicates import META_PREDICATES, equivalent_under, is_prime
+from orate.meta_predicates import (
+    META_PREDICATES,
+    coprime_with,
+    divides,
+    divisible_by,
+    equivalent_under,
+    is_palindrome,
+    is_prime,
+    is_square,
+    length_eq,
+    multiplies_to,
+    sums_to,
+)
 
 
 # ---- predicate-library smoke ----------------------------------------------
@@ -47,6 +59,119 @@ def test_meta_predicates_dict_lists_all() -> None:
     assert "is_prime" in META_PREDICATES
     assert "equivalent_under" in META_PREDICATES
     assert "factors_to" in META_PREDICATES
+    assert "multiplies_to" in META_PREDICATES
+    assert "sums_to" in META_PREDICATES
+    assert "divides" in META_PREDICATES
+    assert "divisible_by" in META_PREDICATES
+    assert "is_square" in META_PREDICATES
+    assert "is_palindrome" in META_PREDICATES
+    assert "coprime_with" in META_PREDICATES
+    assert "length_eq" in META_PREDICATES
+
+
+def test_multiplies_to_curried() -> None:
+    check = multiplies_to(1147, 31)
+    assert check(37) is True   # 31 * 37 == 1147
+    assert check(36) is False
+    assert check(0) is False
+
+
+def test_sums_to_curried() -> None:
+    check = sums_to(100, 47)
+    assert check(53) is True
+    assert check(52) is False
+    # negative candidate is fine arithmetically; predicate is just =
+    assert check(-47 + 100) is True
+
+
+def test_divides_curried() -> None:
+    check = divides(1147)
+    assert check(31) is True   # 31 divides 1147
+    assert check(37) is True
+    assert check(2) is False
+    assert check(0) is False   # zero divisor rejected, no exception
+
+
+def test_divisible_by_curried() -> None:
+    check = divisible_by(7)
+    assert check(14) is True
+    assert check(15) is False
+    assert check(0) is True    # 0 % 7 == 0
+    # divisor zero -> reject (no ZeroDivisionError leaks)
+    assert divisible_by(0)(5) is False
+
+
+def test_is_square_curried() -> None:
+    check = is_square()
+    assert check(0) is True
+    assert check(1) is True
+    assert check(16) is True
+    assert check(17) is False
+    assert check(-4) is False
+
+
+def test_is_palindrome_curried() -> None:
+    check = is_palindrome()
+    assert check(121) is True
+    assert check(122) is False
+    assert check("racecar") is True
+    assert check("orate") is False
+    assert check("") is False  # empty rejected
+
+
+def test_coprime_with_curried() -> None:
+    check = coprime_with(15)
+    assert check(8) is True    # gcd(8,15)=1
+    assert check(9) is False   # gcd(9,15)=3
+    assert check(1) is True
+
+
+def test_length_eq_curried() -> None:
+    check = length_eq(3)
+    assert check(123) is True
+    assert check(12) is False
+    assert check("abc") is True
+    assert check("abcd") is False
+
+
+# ---- compile + run with new predicates -----------------------------------
+
+
+def test_compile_with_multiplies_to_resolves() -> None:
+    """Bound-name args (target, p) curry the factory at exec time."""
+    src = (
+        "@program\n"
+        "def factor():\n"
+        "    target = yield gen.integer(1147, 1147)\n"
+        "    p = yield gen.integer(2, 1146, where=divides(target))\n"
+        "    q = yield gen.integer(2, 1146, where=multiplies_to(target, p))\n"
+        '    return {"p": p, "q": q}\n'
+    )
+    errors = validate_program_source(src)
+    assert errors == [], errors
+    compiled = compile_program_source(src)
+    assert callable(compiled)
+
+
+def test_compiled_factorize_runs_against_mock_engine() -> None:
+    """End-to-end: meta-authored program with two new predicates runs.
+
+    Witness enumeration narrows q to the unique value satisfying
+    ``multiplies_to(target, p)`` once p is bound by the divides
+    predicate. Whatever the engine samples, p * q must equal 1147.
+    """
+    src = (
+        "@program\n"
+        "def factor():\n"
+        "    target = yield gen.integer(1147, 1147)\n"
+        "    p = yield gen.integer(2, 1146, where=divides(target))\n"
+        "    q = yield gen.integer(2, 1146, where=multiplies_to(target, p))\n"
+        '    return {"p": p, "q": q}\n'
+    )
+    compiled = compile_program_source(src)
+    engine = MockEngine(seed=7)
+    result = compiled().run(engine=engine)
+    assert result["p"] * result["q"] == 1147
 
 
 # ---- validation ------------------------------------------------------------

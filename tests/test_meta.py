@@ -23,10 +23,10 @@ from orate.engine.mock import MockEngine
 VALID_SOURCE = """@program
 def example():
     n = yield gen.integer(10, 99)
-    color = yield gen.choice(["red", "blue", "green"])
-    flag = yield gen.boolean()
+    c = yield gen.choice(["red", "blue", "green"])
+    f = yield gen.boolean()
     s = yield gen.string(max_len=20)
-    return {"a": n, "b": color, "c": flag, "d": s}
+    return {"a": n, "b": c, "c": f, "d": s}
 """
 
 

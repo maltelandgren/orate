@@ -62,13 +62,19 @@ PROGRAM_SOURCE_GRAMMAR = r"""
 root ::= decorator header stmt-list
 decorator ::= "@program\n"
 header ::= "def " ident "():\n"
-stmt-list ::= assign-stmt stmt-list | return-stmt
-assign-stmt ::= "    " ident " = yield " gen-call "\n"
+stmt-list ::= assign-stmt stmt-list-5 | return-stmt
+stmt-list-5 ::= assign-stmt stmt-list-4 | return-stmt
+stmt-list-4 ::= assign-stmt stmt-list-3 | return-stmt
+stmt-list-3 ::= assign-stmt stmt-list-2 | return-stmt
+stmt-list-2 ::= assign-stmt stmt-list-1 | return-stmt
+stmt-list-1 ::= assign-stmt stmt-list-0 | return-stmt
+stmt-list-0 ::= return-stmt
+assign-stmt ::= "    " var-name " = yield " gen-call "\n"
 return-stmt ::= "    return " return-expr "\n"
-return-expr ::= dict-expr | ident
+return-expr ::= dict-expr | var-name
 dict-expr ::= "{" dict-pair dict-pair-rest "}"
 dict-pair-rest ::= ", " dict-pair dict-pair-rest | ""
-dict-pair ::= str-lit ": " ident
+dict-pair ::= str-lit ": " var-name
 gen-call ::= choice-call | int-call | str-call | bool-call
 choice-call ::= "gen.choice([" str-lit str-lit-rest "]" where-opt ")"
 str-lit-rest ::= ", " str-lit str-lit-rest | ""
@@ -76,10 +82,14 @@ int-call ::= "gen.integer(" int-lit ", " int-lit where-opt ")"
 str-call ::= "gen.string(max_len=" int-lit where-opt ")"
 bool-call ::= "gen.boolean()"
 where-opt ::= ", where=" pred-call | ""
-pred-call ::= pred-name "(" pred-args ")"
-pred-name ::= "is_prime" | "digit_sum_eq" | "lt" | "gt" | "equivalent_under" | "factors_to"
-pred-args ::= ident pred-args-rest | ""
-pred-args-rest ::= ", " ident pred-args-rest | ""
+pred-call ::= pred-zero | pred-one | pred-two
+pred-zero ::= pred-name-0 "()"
+pred-one ::= pred-name-1 "(" var-name ")"
+pred-two ::= pred-name-2 "(" var-name ", " var-name ")"
+pred-name-0 ::= "is_prime" | "is_square" | "is_palindrome"
+pred-name-1 ::= "digit_sum_eq" | "lt" | "gt" | "divides" | "divisible_by" | "coprime_with" | "length_eq" | "factors_to"
+pred-name-2 ::= "multiplies_to" | "sums_to" | "equivalent_under"
+var-name ::= [a-z]
 ident ::= ident-start ident-rest
 ident-start ::= [a-z_]
 ident-rest ::= ident-char ident-rest | ""
@@ -291,16 +301,28 @@ def _validate_gen_call(
         _check_boolean_args(node, index, errors)
 
 
-# Allowed predicate names — meta-authored programs may reference these
-# in ``where=`` clauses. Kept in sync with ``meta_predicates.META_PREDICATES``.
-_ALLOWED_PREDICATES = frozenset({
-    "is_prime",
-    "digit_sum_eq",
-    "lt",
-    "gt",
-    "equivalent_under",
-    "factors_to",
-})
+# Allowed predicate names → required positional arity. Keep in sync
+# with the factory signatures in ``meta_predicates.META_PREDICATES``.
+# The validator rejects ``where=foo(...)`` calls with mismatched arity
+# so a sloppy zero-arg ``divides()`` doesn't sail past the AST check
+# and crash at runtime when the factory raises TypeError.
+_PREDICATE_ARITY: dict[str, int] = {
+    "is_prime": 0,
+    "digit_sum_eq": 1,
+    "lt": 1,
+    "gt": 1,
+    "multiplies_to": 2,
+    "sums_to": 2,
+    "divides": 1,
+    "divisible_by": 1,
+    "is_square": 0,
+    "is_palindrome": 0,
+    "coprime_with": 1,
+    "length_eq": 1,
+    "equivalent_under": 2,
+    "factors_to": 1,
+}
+_ALLOWED_PREDICATES = frozenset(_PREDICATE_ARITY.keys())
 
 
 def _split_keywords(
@@ -355,6 +377,12 @@ def _check_where_clause(
             f"library; pick one of {sorted(_ALLOWED_PREDICATES)}"
         )
         return
+    expected_arity = _PREDICATE_ARITY[pred_func.id]
+    if len(call.args) != expected_arity:
+        errors.append(
+            f"statement #{index}: where= predicate {pred_func.id!r} takes "
+            f"{expected_arity} positional argument(s); got {len(call.args)}"
+        )
     if call.keywords:
         errors.append(
             f"statement #{index}: where= predicate call takes no keyword arguments"

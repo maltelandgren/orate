@@ -24,17 +24,26 @@ this library; arbitrary callables are rejected.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import Any
 
 __all__ = [
     "META_PREDICATES",
+    "coprime_with",
     "digit_sum_eq",
+    "divides",
+    "divisible_by",
     "equivalent_under",
     "factors_to",
-    "is_prime",
-    "lt",
     "gt",
+    "is_palindrome",
+    "is_prime",
+    "is_square",
+    "length_eq",
+    "lt",
+    "multiplies_to",
+    "sums_to",
 ]
 
 
@@ -100,6 +109,120 @@ def gt(bound: int) -> Callable[[int], bool]:
     def _check(n: int) -> bool:
         try:
             return int(n) > int(bound)
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def multiplies_to(target: int, other: int) -> Callable[[int], bool]:
+    """Curried: ``where=multiplies_to(target, other)`` checks
+    ``candidate * other == target``. Useful for factoring problems."""
+
+    def _check(n: int) -> bool:
+        try:
+            return int(n) * int(other) == int(target)
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def sums_to(target: int, other: int) -> Callable[[int], bool]:
+    """Curried: ``where=sums_to(target, other)`` checks
+    ``candidate + other == target``. Useful for Goldbach-style searches."""
+
+    def _check(n: int) -> bool:
+        try:
+            return int(n) + int(other) == int(target)
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def divides(target: int) -> Callable[[int], bool]:
+    """Curried: ``where=divides(target)`` checks ``target % candidate == 0``
+    (i.e. the candidate is a non-zero divisor of ``target``)."""
+
+    def _check(n: int) -> bool:
+        try:
+            n = int(n)
+            if n == 0:
+                return False
+            return int(target) % n == 0
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def divisible_by(divisor: int) -> Callable[[int], bool]:
+    """Curried: ``where=divisible_by(divisor)`` checks
+    ``candidate % divisor == 0`` (i.e. ``divisor`` evenly divides
+    the candidate)."""
+
+    def _check(n: int) -> bool:
+        try:
+            d = int(divisor)
+            if d == 0:
+                return False
+            return int(n) % d == 0
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def is_square() -> Callable[[int], bool]:
+    """Curried: ``where=is_square()`` checks the candidate is a
+    non-negative perfect square."""
+
+    def _check(n: int) -> bool:
+        try:
+            n = int(n)
+            if n < 0:
+                return False
+            r = math.isqrt(n)
+            return r * r == n
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def is_palindrome() -> Callable[[Any], bool]:
+    """Curried: ``where=is_palindrome()`` checks the candidate, read
+    as a string, reads the same forward and backward. Works for both
+    integer and string candidates."""
+
+    def _check(v: Any) -> bool:
+        s = str(v)
+        return len(s) >= 1 and s == s[::-1]
+
+    return _check
+
+
+def coprime_with(other: int) -> Callable[[int], bool]:
+    """Curried: ``where=coprime_with(other)`` checks
+    ``gcd(candidate, other) == 1``."""
+
+    def _check(n: int) -> bool:
+        try:
+            return math.gcd(int(n), int(other)) == 1
+        except (TypeError, ValueError):
+            return False
+
+    return _check
+
+
+def length_eq(target: int) -> Callable[[Any], bool]:
+    """Curried: ``where=length_eq(target)`` checks ``len(str(candidate)) == target``.
+    Convenient for digit-count constraints on integers."""
+
+    def _check(v: Any) -> bool:
+        try:
+            return len(str(v)) == int(target)
         except (TypeError, ValueError):
             return False
 
@@ -181,6 +304,14 @@ META_PREDICATES: dict[str, Any] = {
     "digit_sum_eq": digit_sum_eq,
     "lt": lt,
     "gt": gt,
+    "multiplies_to": multiplies_to,
+    "sums_to": sums_to,
+    "divides": divides,
+    "divisible_by": divisible_by,
+    "is_square": is_square,
+    "is_palindrome": is_palindrome,
+    "coprime_with": coprime_with,
+    "length_eq": length_eq,
     "equivalent_under": equivalent_under,
     "factors_to": factors_to,
 }

@@ -105,7 +105,13 @@ class XGrammarEngine:
     n_gpu_layers: int = -1
     seed: int = 0
     max_tokens_per_sample: int = 256
-    sampler: Literal["argmax"] = "argmax"
+    sampler: Literal["argmax", "temperature"] = "argmax"
+    # Default temperature applied at every sample call. 0.0 ≡ argmax
+    # (the historical behaviour, deterministic). Per-call overrides are
+    # supported via the ``temperature=`` kwarg on ``sample_under`` /
+    # ``sample_grammar``; that's how Session escalates temperature on
+    # rejection retries (see ``Session.advance``).
+    temperature: float = 0.0
 
     # Lazy init
     _llm: Any = field(default=None, init=False, repr=False)
@@ -162,6 +168,13 @@ class XGrammarEngine:
             verbose=False,
             seed=self.seed,
         )
+        # Seed torch's RNG once at load time so T>0 sampling is
+        # reproducible across runs of the same engine instance, while
+        # retries within a single run still see genuinely-different
+        # draws as the RNG state advances.
+        if self.seed:
+            import torch  # noqa: PLC0415
+            torch.manual_seed(self.seed)
         self._vocab_size = int(self._llm.n_vocab())
 
         tokenizer_name = self.tokenizer_name or self._auto_tokenizer_name()
@@ -314,12 +327,18 @@ class XGrammarEngine:
         grammar: str,
         *,
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """Sample grammar-constrained text extending the session KV.
 
         Produced tokens remain in the KV — callers can emit more via
         append() or continue sampling under a different grammar, and
         every later sample sees this output as part of its context.
+
+        ``temperature`` overrides the engine default for this call.
+        ``None`` (the default) means "use the engine's configured
+        temperature." 0.0 is argmax (deterministic); positive values
+        sample from softmax(logits / T) over grammar-valid tokens.
         """
         if not self._session_active:
             raise RuntimeError(
@@ -331,7 +350,8 @@ class XGrammarEngine:
         compiled = self._compile_or_cached(grammar)
         matcher = xgrammar.GrammarMatcher(compiled)
         limit = max_tokens if max_tokens is not None else self.max_tokens_per_sample
-        produced = self._loop_under_matcher(matcher, limit)
+        t = self.temperature if temperature is None else temperature
+        produced = self._loop_under_matcher(matcher, limit, temperature=t)
         return self._llm.detokenize(produced).decode("utf-8", errors="replace")
 
     # ---- public sample methods --------------------------------------
@@ -411,27 +431,39 @@ class XGrammarEngine:
         """
         return {name: spec.dispatch(self) for name, spec in fields.items()}
 
-    def sample_grammar(self, grammar: str, *, max_tokens: int | None = None) -> str:
+    def sample_grammar(
+        self,
+        grammar: str,
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> str:
         """Sample decoded text under an arbitrary GBNF grammar.
 
         Exposes the internal sampling loop for meta-programming: a
         user-supplied grammar (e.g. orate.meta.PROGRAM_SOURCE_GRAMMAR)
-        is compiled into an FSM, the model runs masked argmax decoding
-        to termination, and the decoded text is returned. The caller
-        is responsible for parsing/validating the result.
+        is compiled into an FSM, the model runs masked decoding to
+        termination, and the decoded text is returned. The caller is
+        responsible for parsing/validating the result.
+
+        ``temperature`` overrides the engine default for this call.
+        See ``sample_under`` for semantics.
         """
+        t = self.temperature if temperature is None else temperature
         if max_tokens is not None:
             prior = self.max_tokens_per_sample
             self.max_tokens_per_sample = max_tokens
             try:
-                return self._sample_with_grammar(grammar)
+                return self._sample_with_grammar(grammar, temperature=t)
             finally:
                 self.max_tokens_per_sample = prior
-        return self._sample_with_grammar(grammar)
+        return self._sample_with_grammar(grammar, temperature=t)
 
     # ---- the grammar-constrained sampling loop ----------------------
 
-    def _sample_with_grammar(self, grammar: str) -> str:
+    def _sample_with_grammar(
+        self, grammar: str, *, temperature: float = 0.0,
+    ) -> str:
         """One-shot (stateless) grammar-constrained decode.
 
         Resets the KV, re-evaluates prompt + accumulated context notes,
@@ -450,12 +482,21 @@ class XGrammarEngine:
         prefix = self._full_prefix_tokens()
         self._llm.eval(prefix)
 
-        produced = self._loop_under_matcher(matcher, self.max_tokens_per_sample)
+        produced = self._loop_under_matcher(
+            matcher, self.max_tokens_per_sample, temperature=temperature,
+        )
         text = self._llm.detokenize(produced).decode("utf-8", errors="replace")
         return text
 
-    def _loop_under_matcher(self, matcher: Any, limit: int) -> list[int]:
-        """Inner sampling loop: argmax over grammar-masked logits.
+    def _loop_under_matcher(
+        self,
+        matcher: Any,
+        limit: int,
+        *,
+        temperature: float = 0.0,
+    ) -> list[int]:
+        """Inner sampling loop: argmax (T=0) or softmax-multinomial (T>0)
+        over grammar-masked logits.
 
         Assumes the KV is already in the desired state (caller has
         either reset + evaluated a prefix, or is in session mode and
@@ -464,11 +505,22 @@ class XGrammarEngine:
 
         Uses XGrammar's ``find_jump_forward_string`` fast path when the
         grammar dictates a deterministic continuation — saves 5x
-        Python/C boundary crossings on literal stretches.
+        Python/C boundary crossings on literal stretches. Jump-forward
+        is independent of temperature: the grammar uniquely determines
+        the next chars, so there's nothing to sample over.
         """
         import numpy as np  # noqa: PLC0415
         import torch  # noqa: PLC0415
         import xgrammar  # noqa: PLC0415
+
+        # NOTE: do NOT reset torch.manual_seed inside the per-call loop.
+        # If we re-seeded here, every retry under the same prompt would
+        # draw from the same RNG state and produce identical tokens —
+        # which defeats the whole point of T-escalation on rejection
+        # (verified empirically: with per-call seeding, eq_negative
+        # emits ``x = -2`` 30 times in a row even at T=1.0). The
+        # engine-level seed is set once at load() time; the RNG state
+        # advances naturally across calls so retries genuinely differ.
 
         produced: list[int] = []
         for _ in range(limit):
@@ -498,7 +550,14 @@ class XGrammarEngine:
             logits = np.ctypeslib.as_array(logits_ptr, shape=(self._vocab_size,))
             logits_t = torch.from_numpy(logits).clone().unsqueeze(0)
             xgrammar.apply_token_bitmask_inplace(logits_t, self._bitmask)
-            tid = int(logits_t[0].argmax().item())
+            if temperature > 0.0:
+                # softmax(logits / T) → multinomial draw. Grammar mask
+                # has already set illegal tokens to -inf via
+                # apply_token_bitmask_inplace, so they get probability 0.
+                probs = torch.softmax(logits_t[0] / temperature, dim=-1)
+                tid = int(torch.multinomial(probs, num_samples=1).item())
+            else:
+                tid = int(logits_t[0].argmax().item())
 
             if not matcher.accept_token(tid):
                 break

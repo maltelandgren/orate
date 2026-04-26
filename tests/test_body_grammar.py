@@ -112,31 +112,54 @@ def test_boolean_emits_true_false_alternation():
     assert '"false"' in body
 
 
-def test_string_max_len_emits_recursive_chars_rule():
+def test_string_short_max_len_uses_bounded_chain():
+    """For max_len ≤ 80 we emit a length-bounded chain of (char|"") slots
+    rather than a recursive rule. The bound is what gives the matcher a
+    hard termination — without it, models will sample arbitrary string
+    content forever (verified on the legal-steps bench)."""
     @program
     def name():
         s = yield gen.string(max_len=3)
         return s
 
     body = derive_body_grammar(name)
-    # The string rule wraps a recursive chars-rest rule between quotes.
-    # The cap (max_len) is enforced post-sample by the Session driver,
-    # not in the grammar — so the helper compiles to a tight 2-state DFA.
-    # Older shape was `char char? char? ...` which compiled to a
-    # degenerate length-tracking automaton that hung on long strings.
     helper_lines = [line for line in body.splitlines() if line.startswith("name_str_")]
     assert helper_lines, f"expected name_str_* helper rules in: {body}"
+    # Single helper rule that wraps quoted chars: 1 mandatory + (max_len-1) optional.
+    wrap_rule = helper_lines[0]
+    assert '"\\""' in wrap_rule
+    # max_len=3 → 1 mandatory + 2 optional = 2 instances of the `]?` quantifier
+    # tail (the char class itself contains `?` as a literal so we count `]?`).
+    assert wrap_rule.count("]?") == 2, wrap_rule
+    # Bounded shape doesn't emit a `_chars` recursive rule.
+    chars_rules = [
+        line for line in helper_lines
+        if "_chars" in line.split("::=")[0]
+    ]
+    assert chars_rules == [], chars_rules
+
+
+def test_string_long_max_len_uses_recursive_chars_rule():
+    """For max_len > 80 we fall back to the recursive `chars` rule —
+    narration-length strings (~120 chars) hung on the bounded shape, so
+    the unbounded form is necessary there. Termination relies on the
+    model writing coherent text."""
+    @program
+    def narrate():
+        s = yield gen.string(max_len=120)
+        return s
+
+    body = derive_body_grammar(narrate)
+    helper_lines = [line for line in body.splitlines() if line.startswith("narrate_str_")]
     chars_rule = next(
         (line for line in helper_lines if "_chars" in line.split("::=")[0]),
         None,
     )
     assert chars_rule is not None, (
-        f"expected a name_str_*_chars recursive rule in: {body}"
+        f"expected a narrate_str_*_chars recursive rule in: {body}"
     )
-    # Recursive shape: <chars> ::= <char_class> <chars> | ""
     assert "_chars" in chars_rule
-    assert '""' in chars_rule  # the empty alternative is the recursion's base case
-    # The wrapping rule opens + closes with a quote.
+    assert '""' in chars_rule
     wrap_rule = next(
         line for line in helper_lines if "_chars" not in line.split("::=")[0]
     )

@@ -634,20 +634,47 @@ class _RuleBuilder:
             )
         char_class = _pattern_to_char_class(pattern)
         rule_name = self._reserve(f"str_{index}")
-        chars_rule = self._reserve(f"str_{index}_chars")
-        # Recursive char-rest rule compiles to a tight 2-state DFA — the
-        # matcher accepts any number of chars between the quotes. This
-        # replaces the older shape (1 mandatory + (max_len-1) optional
-        # chars in linear sequence), which compiled to a degenerate
-        # length-tracking automaton that hung Qwen-7B for narration-
-        # length strings (~120 chars). The length cap (max_len) is now
-        # enforced at sample time via the engine's max_tokens budget
-        # plus a post-sample length check by the caller; the grammar
-        # itself admits arbitrary length.
-        self.helper_rules[chars_rule] = f"{char_class} {chars_rule} | \"\""
-        self.helper_rules[rule_name] = f'"\\"" {chars_rule} "\\""'
-        # Stash the cap on the builder for callers that want to enforce
-        # it (the Session driver checks it post-sample if available).
+
+        # Two grammar shapes, picked by length:
+        #
+        # * SHORT (max_len ≤ 80): a length-bounded chain of `(char | "")`
+        #   slots. Compiles to ~max_len helper rules; XGrammar handles
+        #   that fine up to ~80 chars. The bound matters because it
+        #   gives the matcher a hard termination — at max_len the
+        #   string MUST close. Without it, models like Qwen-7B happily
+        #   sample 2k tokens of plausible-looking string content
+        #   without ever emitting the closing quote (verified on the
+        #   legal-steps bench, where eq_2x_eq_6 burned 411s producing 0
+        #   complete @-calls under the unbounded grammar).
+        #
+        # * LONG (max_len > 80): a recursive `chars ::= char chars | ""`
+        #   rule. Compiles to a tight 2-state DFA. The grammar admits
+        #   arbitrary length; termination relies on natural-language
+        #   coherence (narration sentences end). The earlier bounded
+        #   shape hung Qwen-7B for ~6 minutes on max_len=120 strings —
+        #   commit 4da326a.
+        #
+        # The cap is also stashed in ``string_caps`` so the Session
+        # driver can post-sample-check on the LONG path. The SHORT path
+        # is enforced by the grammar itself.
+        SHORT_THRESHOLD = 80
+        if max_len <= SHORT_THRESHOLD:
+            # Old bounded shape: 1 mandatory char + (max_len-1) optional
+            # chars using the `?` quantifier. Compiles fast in XGrammar
+            # (verified on the 2026-04-25_1200 bench: first
+            # algebra_step call cold-compiled in ~9s). The alternation
+            # form `(C | "")^N` was ~10× slower to compile (246s on
+            # first call). Same admitted language, different compiler
+            # path — the `?` form must hit a faster XGrammar codepath.
+            body_parts = [char_class] + [f"{char_class}?"] * (max_len - 1)
+            chars_body = " ".join(body_parts)
+            self.helper_rules[rule_name] = f'"\\"" {chars_body} "\\""'
+        else:
+            chars_rule = self._reserve(f"str_{index}_chars")
+            self.helper_rules[chars_rule] = (
+                f"{char_class} {chars_rule} | \"\""
+            )
+            self.helper_rules[rule_name] = f'"\\"" {chars_rule} "\\""'
         self.string_caps[rule_name] = max_len
         return rule_name
 
@@ -706,10 +733,21 @@ def _pattern_to_char_class(pattern: str | None) -> str:
     Mirrors ``_string_grammar`` in the XGrammar engine: we only support
     bracketed classes (e.g. ``[a-z]``, ``[A-Z0-9_]``) — full regex is
     explicitly out of scope. No pattern means printable ASCII minus
-    quote and backslash.
+    quote, backslash, and `@`.
+
+    The `@` exclusion is important: with the recursive `chars` rule
+    introduced in 4da326a (gen.string emits a recursive chars rule),
+    the grammar admits arbitrary-length strings. Models like Qwen-7B
+    will happily sample `"3x = 9@algebra_step(...` inside a string
+    slot — `@` being a high-probability continuation that "looks like"
+    starting a new tool call. Excluding `@` forces the model to close
+    the quote before it can emit any @-call syntax. None of the
+    string-arg use cases (algebra, narration, NPC lines) need `@` in
+    their content.
     """
     if pattern is None:
-        return "[ !#-[\\]-~]"
+        # Printable ASCII minus quote (0x22), `@` (0x40), backslash (0x5C).
+        return "[ !#-?A-[\\]-~]"
     p = pattern.strip()
     # Strip a single trailing quantifier like `+` or `*` if present —
     # the unrolled repetition is supplied by max_len.
