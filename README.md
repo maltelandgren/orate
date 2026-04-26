@@ -158,6 +158,25 @@ before the next yield is allowed:
 
 Most recent run: [`bench/results/legal_steps_2026-04-26_1759.md`](bench/results/legal_steps_2026-04-26_1759.md).
 
+#### What does grammar-constrained decoding cost?
+
+Steady-state on the same Qwen2.5-7B-Instruct-Q4_K_M, same hardware, same 10 algebra problems:
+
+| | tok/s (avg) | wall total | tokens emitted |
+|---|---|---|---|
+| Free text          | **14.8** | 309s     | ~4,600 |
+| `@algebra_step`    | **7.3**  | **127s** | ~930   |
+
+Two honest things to read off this:
+
+1. **Per-token, constrained decoding is ~½ the rate of free text.** XGrammar's mask-and-resample on every token isn't free.
+2. **Per-task, constrained decoding is ~2.4× faster wall-clock.** The grammar emits one terse `@-call` chain instead of a verbose worked chain, so the total token budget is much smaller — and the answer is verified-correct on arrival rather than parsed-from-prose post-hoc.
+
+Two caveats worth flagging:
+
+- **First-sample cold compile.** Up until commit [`f6046ac`](https://github.com/maltelandgren/orate/commit/f6046ac) the very first constrained call after a mode switch paid a ~200s XGrammar JIT-compile cost. A compiled-grammar cache (keyed by GBNF source) plus per-leaf body-grammar pre-warming during `Session.__init__` killed it; numbers above are steady-state from the first sample.
+- **Mask cost depends on grammar shape.** Wide grammars (e.g. `gen.string(max_len=140)` over printable ASCII) narrow the tok/s gap. Tight grammars (e.g. `gen.choice` over 4 options) widen it — most candidate logits get masked. The 7.3 tok/s number above is roughly the harder end of that spread.
+
 The same pattern extends to **propositional logic** — see
 [`examples/legal_steps/logic.py`](examples/legal_steps/logic.py)
 (`@inference_step` with a `derivable_under` predicate covering modus
