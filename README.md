@@ -432,3 +432,5 @@ MIT. See [LICENSE](LICENSE).
 ## Credits
 
 Submission video music: **"On The Eve"** by *The Grey Room / Density & Time*, from the [YouTube Audio Library](https://www.youtube.com/audiolibrary).
+
+*p.s. — [the devlog](video/devlog.mp4) 🌲*
