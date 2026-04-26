@@ -36,7 +36,10 @@ from manim import (
     Line,
     ORIGIN,
     RIGHT,
+    Polygon,
     Rectangle,
+    RegularPolygon,
+    Rotate,
     RoundedRectangle,
     Scene,
     Text,
@@ -278,6 +281,87 @@ def _terminal_card(width: float, height: float,
     return shadow, body, tag_txt
 
 
+def _make_sword(scale: float = 1.0, color: str = None) -> VGroup:
+    """A simple line-art sword: blade + tip + crossguard + handle + pommel.
+
+    Composed from filled rectangles + a triangle tip + a tiny hex
+    pommel — nothing fancy, just a recognisable silhouette at small
+    scale. Pointing UP by default; rotate the returned VGroup for
+    other orientations.
+    """
+    if color is None:
+        color = Paper.ink
+    blade = Rectangle(
+        width=0.10, height=2.0,
+        fill_color=color, fill_opacity=1.0, stroke_width=0,
+    )
+    blade.move_to(np.array([0, 0.10, 0]))
+    tip = Polygon(
+        np.array([-0.05, 1.10, 0]),
+        np.array([0.05, 1.10, 0]),
+        np.array([0.0, 1.30, 0]),
+        fill_color=color, fill_opacity=1.0, stroke_width=0,
+    )
+    crossguard = Rectangle(
+        width=0.55, height=0.08,
+        fill_color=color, fill_opacity=1.0, stroke_width=0,
+    )
+    crossguard.move_to(np.array([0, -0.92, 0]))
+    handle = Rectangle(
+        width=0.10, height=0.32,
+        fill_color=color, fill_opacity=1.0, stroke_width=0,
+    )
+    handle.move_to(np.array([0, -1.13, 0]))
+    pommel = RegularPolygon(
+        n=6, color=color, fill_color=color,
+        fill_opacity=1.0, stroke_width=0,
+    )
+    pommel.scale(0.10)
+    pommel.move_to(np.array([0, -1.34, 0]))
+    sword = VGroup(blade, tip, crossguard, handle, pommel)
+    sword.scale(scale)
+    return sword
+
+
+def _stat_card(title: str, rows: list[tuple[str, str]]) -> VGroup:
+    """Tabletop-style stat block: title + ruled separator + key/value rows.
+
+    Used in Page 0 to introduce the "rules" idea — sword + stats card
+    grounds "behave according to the rules" visually before the
+    abstraction conversation starts.
+    """
+    title_t = Text(title, font="Georgia", weight="BOLD",
+                   font_size=18, color=Paper.ink)
+    sep_w = 1.6
+    sep = Line(
+        np.array([-sep_w / 2, 0, 0]),
+        np.array([sep_w / 2, 0, 0]),
+        stroke_color=Paper.ink_soft, stroke_width=0.8,
+    )
+    row_mobs = []
+    for k, v in rows:
+        # Single Text per row keeps spacing predictable. Pad the key so
+        # the value column lines up — monospace.
+        row_mobs.append(Text(
+            f"{k:<10}{v}",
+            font=theme.MONO_FALLBACK, font_size=12, color=Paper.ink,
+        ))
+    rows_grp = VGroup(*row_mobs).arrange(DOWN, buff=0.10, aligned_edge=LEFT)
+    content = VGroup(title_t, sep, rows_grp).arrange(
+        DOWN, buff=0.16, aligned_edge=LEFT,
+    )
+    pad_x, pad_y = 0.30, 0.25
+    bg = RoundedRectangle(
+        width=content.width + 2 * pad_x,
+        height=content.height + 2 * pad_y,
+        corner_radius=0.10,
+        fill_color=Paper.bg, fill_opacity=0.95,
+        stroke_color=Paper.ink_soft, stroke_width=1.0,
+    )
+    bg.move_to(content.get_center())
+    return VGroup(bg, content)
+
+
 def _paper_card(width: float, height: float) -> VGroup:
     """A subtle paper-tone drawer with a thin border and faint shadow."""
     shadow = VGroup(*[
@@ -306,11 +390,252 @@ class FullVideoV2(Scene):
         self.camera.background_color = Paper.bg
         self.add(theme.paper_grid(opacity=0.32))
 
-        self._page1_distribution_shaping()
+        # Page 0 carries Malte's 31s personal voiceover: a quiet TTRPG
+        # anchor (d20 emblem + name byline), the three-tool chip reveal
+        # synced to "structured output / tool calling / xml tagging",
+        # the merge-into-? unification beat, and the orate wordmark
+        # reveal that hands off to Page 2.
+        self._page0_personal_intro()
+        # Page 1 (distribution-shaping motivation) is commented out for
+        # the submission cut — Page 0 + the personal voiceover do the
+        # same job. Re-enable if the intro changes scope.
+        # self._page1_distribution_shaping()
         self._page2_structured_output_and_logic()
         self._page3_algebra_predicate_and_contrast()
         self._page4_dnd_session_and_combat_regrammar()
         self._page5_meta_authorship_and_close()
+
+    # ======================================================================
+    # PAGE 0 — personal intro (31s voiceover companion)
+    # ======================================================================
+
+    def _page0_personal_intro(self):
+        """Visual companion to Malte's 31s voiceover.
+
+        Voiceover beat-by-beat (annotated by Malte after a test record):
+          0.0  "I'm in Sweden, my name is Malte"
+          2.0  "and I'm making a tabletop RPG simulator …with my friend"
+          6.0   (small breath)
+          7.0  "We really want to make the LLMs in the game"
+         10.0  "behave and act according to the rules"
+         12.0  "and the project constantly became a tradeoff between"
+         14.0  "structured output,"
+         15.5  "tool calling, and"
+         17.0  "xml tagging."
+         18.0  "It bogs up our harness, and it all seemed like it
+                should really just be"
+         21.5  "unified under one abstraction."
+         23.0  "So in this hackathon, Claude and Me have built Orate,
+                a programmatic grammar decoding library for LLM
+                inference."
+         31.0  end
+
+        Visual phases land on those beats:
+          0–4   d20 emblem + byline appear; quiet
+          4–7   two swords fly across; one settles centre-left
+          7–10  pause on the settled sword
+         10–12 longsword stat card materialises beside the sword —
+                "behave and act according to the rules"
+         12–14 sword + card fade; transition into chip lane
+         14–18 three chips appear in turn ("structured output",
+                "tool calling", "xml tagging")
+         18–23 chips slide together and merge into a single `?` chip
+         23–31 `?` morphs into the orate wordmark + subtitle, holds
+        """
+        # ----- 0–4s: byline + d20 anchor ----------------------------
+        d20 = RegularPolygon(
+            n=6, color=Paper.ink_soft, stroke_width=1.5,
+        )
+        d20.scale(0.42)
+        d20_n = Text("20", font="Georgia", weight="BOLD",
+                     font_size=15, color=Paper.ink_soft)
+        d20_n.move_to(d20.get_center())
+        d20_grp = VGroup(d20, d20_n)
+        d20_grp.move_to(np.array([5.5, -3.05, 0]))
+
+        byline = Text("Malte · Sweden",
+                      font=theme.SANS_FALLBACK,
+                      font_size=11, color=Paper.mute)
+        byline.move_to(np.array([-5.7, 3.5, 0]), aligned_edge=LEFT)
+
+        self.play(
+            FadeIn(d20_grp, run_time=0.7),
+            FadeIn(byline, run_time=0.7),
+        )
+        # Hold so swords start flying at ~2.0s, on "tabletop rpg
+        # simulator" (the 2s mark in Malte's voiceover).
+        self.wait(1.3)
+
+        # ----- 4–7s: two swords fly toward centre and clash ---------
+        # Sword A enters from left, B from right. They arc inward and
+        # cross at the screen centre; a small flash marks the impact.
+        # The crossed-swords tableau holds for ~3s; at t≈10s we pause
+        # abruptly and surface the longsword stat card next to A.
+        sword_a = _make_sword(scale=0.85, color=Paper.ink)
+        sword_a.rotate(np.pi / 6)            # tip angled up-right
+        sword_a.move_to(np.array([-7.5, -0.5, 0]))
+
+        sword_b = _make_sword(scale=0.85, color=Paper.ink_soft)
+        sword_b.rotate(-np.pi / 6 + np.pi)   # tip angled down-left (mirrored)
+        sword_b.move_to(np.array([7.5, 0.5, 0]))
+
+        self.add(sword_a, sword_b)
+        # Both swords swing toward centre on opposite arcs; they meet
+        # in the middle with their blades crossed. Pull the left sword
+        # right by 1/3 of its width and the right sword left by 1/4
+        # of its width so the X they form sits closer to centre.
+        sword_a_w = sword_a.width
+        sword_b_w = sword_b.width
+        clash_a = np.array([-0.55 + sword_a_w / 3, -0.05, 0])
+        clash_b = np.array([0.55 - sword_b_w / 4, 0.05, 0])
+        self.play(
+            sword_a.animate.move_to(clash_a).rotate(np.pi / 12),
+            sword_b.animate.move_to(clash_b).rotate(-np.pi / 12),
+            run_time=1.6,
+            rate_func=smooth,
+        )
+
+        # Tiny clash spark — quick fade, accent colour. Visual rhyme
+        # with the strikes used in Page 5's mask flash.
+        spark = theme.starburst(radius=0.20, color=Paper.accent)
+        spark.move_to(ORIGIN)
+        self.play(FadeIn(spark, run_time=0.12))
+        self.play(FadeOut(spark, run_time=0.18))
+
+        # Brief recoil (a few pixels) so the tableau reads like a real
+        # impact rather than two swords pasted on top of each other.
+        self.play(
+            sword_a.animate.shift(LEFT * 0.10),
+            sword_b.animate.shift(RIGHT * 0.10),
+            run_time=0.25,
+        )
+
+        # Hold the crossed-swords tableau through "We really want to
+        # make the LLMs in the game…" — stat card lands at ~10s on
+        # "behave and act according to the rules". The recoil ends
+        # near ~4.15s; this fills until ~10s.
+        self.wait(5.85)
+
+        # ----- 10s: ABRUPT freeze + info card on sword A ------------
+        # The "abrupt" feel comes from a fast simultaneous reveal of
+        # the callout line + stat card, plus a soft accent halo around
+        # sword A so the viewer's eye locks on to it.
+        halo = RoundedRectangle(
+            width=sword_a.width + 0.25,
+            height=sword_a.height + 0.25,
+            corner_radius=0.12,
+            fill_opacity=0,
+            stroke_color=Paper.accent, stroke_width=1.4,
+        )
+        halo.move_to(sword_a.get_center())
+        # Cumulative rotation applied to sword_a above: π/6 (initial)
+        # + π/12 (clash-arc). Halo follows so it looks like a frame
+        # snapped to the blade rather than a floating box.
+        halo.rotate(np.pi / 6 + np.pi / 12)
+
+        stat_card = _stat_card(
+            title="longsword",
+            rows=[
+                ("damage", "1d8"),
+                ("type",   "slashing"),
+                ("range",  "melee"),
+                ("weight", "3 lb"),
+            ],
+        )
+        # Park the stat card to the LEFT of sword A, leaving sword B
+        # unobscured to the right of frame.
+        stat_card.move_to(np.array([-3.6, -0.05, 0]))
+        callout = Line(
+            stat_card.get_right() + np.array([0.05, 0, 0]),
+            sword_a.get_left() + np.array([-0.05, 0, 0]),
+            stroke_color=Paper.accent, stroke_width=1.2,
+        )
+        self.play(
+            FadeIn(halo, run_time=0.25),
+            FadeIn(callout, run_time=0.25),
+            FadeIn(stat_card, shift=RIGHT * 0.10, run_time=0.45),
+        )
+        # Hold from ~10.45s to ~12s — voiceover lands "behave and act
+        # according to the rules" during this dwell.
+        self.wait(1.55)
+
+        # ----- 12–14s: clear the tabletop set, prepare chip lane ----
+        # Voiceover: "and the project constantly became a tradeoff
+        # between using…" — we clear at 12s and breathe until 14s,
+        # when the first chip lands on "structured output".
+        self.play(
+            FadeOut(VGroup(sword_a, sword_b, halo,
+                           callout, stat_card),
+                    run_time=0.7),
+        )
+        self.wait(1.3)
+
+        # ----- 14–18s: three chips appear -----------------------------
+        chips = VGroup(
+            _chip("structured output", font_size=14),
+            _chip("tool calling", font_size=14),
+            _chip("xml tagging", font_size=14),
+        ).arrange(RIGHT, buff=0.45)
+        chips.move_to(ORIGIN)
+        # 14.0 → "structured output"
+        self.play(FadeIn(chips[0], shift=UP * 0.08, run_time=0.4))
+        self.wait(1.1)
+        # 15.5 → "tool calling"
+        self.play(FadeIn(chips[1], shift=UP * 0.08, run_time=0.4))
+        self.wait(1.1)
+        # 17.0 → "xml tagging"
+        self.play(FadeIn(chips[2], shift=UP * 0.08, run_time=0.4))
+        # Hold until ~18s ("It bogs up our harness…").
+        self.wait(0.6)
+
+        # ----- 18–23s: chips merge into ? ----------------------------
+        # Hold the trio while voiceover sets up the unification idea
+        # — "It bogs up our harness, and it all seemed like it should
+        # really just be…" runs from ~18s to ~21.5s.
+        self.wait(2.4)
+        # ~21.5 → "unified under one abstraction": chips slide together.
+        q_chip = _chip("?", font_size=24)
+        q_chip.set_stroke(Paper.accent, width=1.8)
+        q_chip.move_to(ORIGIN)
+        self.play(
+            *[c.animate.move_to(ORIGIN).set_opacity(0.0) for c in chips],
+            FadeIn(q_chip, scale=0.85),
+            run_time=1.1,
+        )
+        # Linger on `?` until ~26s — that's when Malte says "Orate"
+        # and the wordmark transition should land. The 23s mark is
+        # the start of the closing sentence ("So in this hackathon,
+        # Claude and Me have built…"); the wordmark waits for the
+        # actual word.
+        self.wait(4.5)
+
+        # ----- 23–31s: orate wordmark + subtitle ---------------------
+        wordmark = Text(_spaced("orate", n=2),
+                        font="Georgia", slant="ITALIC", weight="BOLD",
+                        font_size=64, color=Paper.ink)
+        subtitle = Text(
+            "programmatic grammar decoding for LLM inference",
+            font="Georgia", slant="ITALIC",
+            font_size=18, color=Paper.ink_soft,
+        )
+        title_grp = VGroup(wordmark, subtitle).arrange(DOWN, buff=0.35)
+        title_grp.move_to(ORIGIN)
+
+        self.play(
+            FadeOut(q_chip, scale=1.2, run_time=0.4),
+            FadeIn(wordmark, shift=UP * 0.12, run_time=0.7),
+        )
+        self.play(FadeIn(subtitle, shift=UP * 0.05, run_time=0.5))
+        # Hold through "...programmatic grammar decoding library for
+        # LLM inference" — voiceover ends ~31s. Wordmark visible from
+        # ~26.7s onward; this dwell carries it to the end of the
+        # voiceover plus a small buffer.
+        self.wait(4.0)
+
+        # Cleanup; Page 2 has its own composition.
+        self.play(
+            FadeOut(VGroup(title_grp, d20_grp, byline), run_time=0.45),
+        )
 
     # ======================================================================
     # PAGE 1 — distribution shaping → developer-accessible → bridge
@@ -496,7 +821,14 @@ class FullVideoV2(Scene):
     # ======================================================================
 
     def _page2_structured_output_and_logic(self):
-        so_chip = self._so_chip
+        # If Page 1 ran, it parked the so_chip ready to dock. If not
+        # (current submission cut), materialise it here from scratch
+        # so the dock animation still has something to transform.
+        so_chip = getattr(self, "_so_chip", None)
+        if so_chip is None:
+            so_chip = _chip("structured output")
+            so_chip.move_to(np.array([0.0, 1.0, 0]))
+            self.play(FadeIn(so_chip, shift=UP * 0.05, run_time=0.35))
 
         # Beat 2.A — dock structured output → top-left header. Drawer drops.
         target = _chip("structured output", font_size=16)
@@ -2257,15 +2589,18 @@ class FullVideoV2(Scene):
                  font_size=30, color=Paper.accent),
         ).arrange(DOWN, buff=0.26, aligned_edge=LEFT)
         thesis.move_to(ORIGIN)
+        # Tighter cascade — was lag_ratio=0.55 / run_time=5.2 / hold=5.5,
+        # now 0.45 / 4.0 / 3.5 to claw back ~3s for the personal intro
+        # without making the punchline feel rushed.
         self.play(LaggedStart(
             *[FadeIn(ln, shift=UP * 0.12) for ln in thesis],
-            lag_ratio=0.55, run_time=5.2,
+            lag_ratio=0.45, run_time=4.0,
         ))
-        self.wait(5.5)
+        self.wait(3.5)
 
         gh = Text("github.com/maltelandgren/orate",
                   font=theme.MONO_FALLBACK, font_size=14,
                   color=Paper.ink_soft)
         gh.to_edge(DOWN, buff=0.5)
-        self.play(FadeIn(gh, run_time=0.55))
-        self.wait(5.0)
+        self.play(FadeIn(gh, run_time=0.45))
+        self.wait(3.5)

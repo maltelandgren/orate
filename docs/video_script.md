@@ -23,25 +23,94 @@ Acts 1–3 set up the library through the use case I built it for. Act 4 reveals
 
 ---
 
-## Act 1 — The pain (0:00–0:25)
+## Page 0 — Personal intro (0:00–0:31)
 
-Cold open. Screen recording of `simulacrum` mid-session. D&D scene renders in the terminal. No voiceover for 2 seconds.
+Visuals: d20 emblem → swords clash → longsword stat card → three constraint chips (structured output / tool calling / xml tagging) → chips merge into `?` → `orate` wordmark reveal at 26s. See [`video/scenes/full_video_v2.py:_page0_personal_intro`](../video/scenes/full_video_v2.py).
 
-Voiceover, first-person:
+Voiceover (first-person, locked timing):
 
-> I've been building a D&D simulator. Every DM turn, one inference has to do three things: narrate what happens, roll dice against the rules, and voice the NPCs.
+| t | line |
+|---|---|
+| #  | t   | line |
+|----|-----|---|
+| 1  | 0.0  | "I'm in Sweden, my name is Malte," |
+| 2  | 2.0  | "and I'm making a table top rpg simulator driven by llms with my friend." |
+| 3  | 7.0  | "We really wan't to make the llms in the game" |
+| 4  | 10.0 | "behave and act according to the rules," |
+| 5  | 12.0 | "and the project constantly became a tradeoff between using" |
+| 6  | 14.0 | "structured output," |
+| 7  | 15.5 | "tool calling, and" |
+| 8  | 17.0 | "xml tagging." |
+| 9  | 18.0 | "It bogs up our harness, and it all seemed like it should really just be" |
+| 10 | 21.5 | "unified under one abstraction." |
+| 11 | 23.0 | "So in this hackathon, Claude and Me have built Orate," |
+| 12 | 26.0 | *(wordmark lands on "Orate")* "a programmatic grammar decoding library for llm inference." |
+|    | 31.0 | *(end)* |
 
-Cut to [`simulacrum/src/harness/agents/dm.py:283`](../../simulacrum/src/harness/agents/dm.py). Highlight return type: just a string.
+---
 
-> But today's APIs make me pick: structured output OR tool calls, not both. So I return text.
+## Page 2 — Structured output → predicates (~0:31–~1:00)
 
-Cut to [`simulacrum/src/harness/orchestrator.py:514`](../../simulacrum/src/harness/orchestrator.py). Highlight the reconstruction loop.
+Lines #13–17. Visual landmark column tells you where on the page the line lands; search the rendered video for the landmark.
 
-> And then I reconstruct the model's decisions by pattern-matching its own narration. Thirty lines of regex recovering what the model already knew.
+| #  | t (abs) | visual landmark (search cue) | line |
+|----|---|---|---|
+| 13 | ~31 | Page fades in; **`structured output` chip** docks top-left; **JSON schema** starts drawing in the left drawer (`{ "name": "Aria", … }`) | "Structured output is often the default. It lets us define type schemas for the output." |
+| 14 | ~44 | All four schema fields are revealed and the bottom bridge line **"Where's *the logic* in that?"** has appeared | "So with structured output we've put typing directly into the decoding process — but where's the logic in that?" |
+|    | 51  | *(pause — `the logic` chip docks top-right; `book_meeting` @program starts drawing)* | — |
+| 15 | 51  | **`book_meeting` @program** on screen; **"predicate constraint"** italic callout points at `where=` | "With orate, we put predicates directly into the schema, to constrain the decoder." |
+| 16 | ~56 | **"cross-field equation"** callout points at `e - start == timedelta(...)` | *(beat — visual carries; optional ad-lib: "…and predicates can close over any Python state.")* |
+| 17 | ~59 | Bottom punchline caption **"Types, tool calls, control flow — same yield stream."** fades in | "Types, tool calls, control flow — same yield stream." |
 
-Beat.
+---
 
-> Three years into the LLM era — why am I translating the model's decisions back out of its own prose?
+## Page 3 — Algebra: legal-step enforcement (~1:00–~1:35)
+
+Lines #18–23.
+
+| #  | visual landmark (search cue) | line |
+|----|---|---|
+| 18 | Page-3 intro **"Where the problem is well-defined, the program forces the model to reason inside its rules."** has just appeared at top | "Multi-step reasoning is where LLMs slip — the model knows the rules, but free-text decoding doesn't enforce them." |
+| 19 | **`@program def algebra_step(...)`** is fully drawn on the left; orange box highlights the `where=lambda s: equivalent_under(...)` lines, side caption **"logic constraint, in Python."** | "We define one program — `algebra_step` — whose `where=` predicate calls SymPy on every candidate step. Same problem, same weights, but only valid steps reach the next yield." |
+| 20 | **"Solve: 3x + 5 = 14"** appears top-right; the **free-text trace** ends with `x = 9 / 3 = 4` in red, with a red ✗ | "Free-text Qwen-7B: x = 4. Wrong — plug it back in, 3 times 4 plus 5 is 17, not 14." |
+| 21 | **`@algebra_step(...)` chain** appears below, three lines all with green ✓; orange box wraps the whole chain; **italic terracotta "literally can't mess up"** fades in below the intro | "Under `@algebra_step`, the model can't get there. Every step is verified before it lands." |
+| 22 | Bottom bench line: **"free-text 5/10 · constrained 9/10 · 16 illegal-step rejections"** fades in | "Across ten problems: free-text gets five out of ten. The same model under `@algebra_step` gets nine out of ten — with sixteen illegal-step attempts caught en route." |
+| 23 | Italic accent **"Same weights. Different gate."** fades in just below the bench line | "Same weights. Different gate." |
+
+---
+
+## Page 4 — D&D session: one KV, many grammars (~1:35–~2:30)
+
+Lines #24–31.
+
+| #  | visual landmark (search cue) | line |
+|----|---|---|
+| 24 | Header **"We can nest and compose programs together."** fades in | "We can nest and compose programs together — and the whole scene runs as one inference, on one KV cache." |
+| 25 | Header morphs into the running title **"One KV. Many grammars."**; tab indicator **`Many grammars [ narrative \| combat ]`** with subbar **`[ narration \| roll \| meta ]`** appears | "Outer grammar: narrative or combat. Inner grammar: which leaf the model is allowed to emit next." |
+| 26 | First trace lines appear: **`@narrate("You try to convince the hooded figure …")`**; subbar bolds `narration` | "The DM narrates the scene…" |
+| 27 | **`@roll("persuasion", dc=14)`** lands; **`→ {d20: 1, success: false}`** in red below it; arrow + callout **"structured output & tools — same yield syntax, only `ends_turn=True` distinguishes them"** | "…rolls a check — that's a tool call, structurally identical to a `gen` yield, just with `ends_turn=True`. Client resolves it, the result lands back on the same KV." |
+| 28 | **`@meta("Haha — a 1. Sorry, won't cut it.")`** lands; sidebar caption **"@meta and @narrate are both string-typed — no XML tags, no post-parse. Just two tools."** | "And meta-commentary is just another string-typed tool. No XML tags, no post-parse — same yield stream." |
+| 29 | **`@enter_combat(aria, borin, hooded_figure)`** appears; outer tab flips to **`combat`**, subbar reshapes to **`[ aria_turn \| borin_turn \| hooded_figure_turn ]`**; caption **"↑ grammar swap on the same KV"** | "Combat starts — the grammar reshapes on the same cache. Same KV, new legal moves." |
+| 30 | **`aria_turn` @program** unfolds on the left; orange box wraps the **`where=lambda d: not (d['action'] in NON_CANTRIPS and d['bonus_action'] in SPELLS)`** block; side caption **"logic constraint, in Python. across fields."** | "Each character is its own program. Aria's turn enforces D&D's action-economy rule — you can't both cantrip and cast — across two fields, in plain Python." |
+| 31 | Right side: bold red **"JSON Schema cannot express this constraint."** then accent **"Predicates are Python."** then **"Fields can reference any Python program state."** | "JSON Schema can't express this. Predicates are Python — they can reference any state your program already has." |
+
+---
+
+## Page 5 — Model authors its own primitive (~2:30–~2:56)
+
+Lines #32–36. (Page-5 layout is locked; voiceover lines from the in-page table below.)
+
+| #  | visual landmark (search cue) | line |
+|----|---|---|
+| 32 | **"This is already pretty nice. But we kept thinking."** holds, then second line **"What if the model defined its own schemas / as structure on its own future generation?"** | "What if the model defined its own schemas — as structure on its own future generation?" |
+| 33 | **`@make_new_program(...)`** call lands at top of right column; **`[grammar switch → PROGRAM_SOURCE_GRAMMAR]`** tag appears below it | "On the same cache, under a different grammar, the model writes a verifier." |
+| 34 | Source body finishes streaming; **`[validated · compiled · registered]`** callout glows green to the right of the source | "Validated. Compiled. Registered. The library grew during the inference." |
+|    | — | *(beat — predicate-flash visual lands: `divides(1147)(31) → 1147 % 31 == 0 ✓` and `multiplies_to(1147, 31)(37) → 37 × 31 == 1147 ✓`)* |
+| 35 | Both ✓ checkmarks pulse green just below the **`→ {'p': 31, 'q': 37}`** result line | **"The model wrote down a contract — then was forced to honor it."** *(the punchline; deliberate, unhurried)* |
+| 36 | Page clears; thesis card fades in: **"Structured output constrained the shape. Tool calling constrained the side effect. orate lets the model enforce the legality of its own thought."** | *(card carries itself — optional read-along, or hold silent)* |
+|    | — | GitHub URL holds on screen 5s; no voiceover. |
+
+---
 
 ## Act 2 — One primitive (0:25–0:55)
 
