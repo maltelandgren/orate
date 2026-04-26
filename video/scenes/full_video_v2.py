@@ -79,7 +79,11 @@ def _chip(label: str,
           bg: str = Paper.card,
           stroke: str = Paper.grid,
           font_size: int = 16) -> VGroup:
-    t = Text(label, font=theme.SANS_FALLBACK, font_size=font_size, color=fg)
+    # Thin-space tracking on chip labels — without it the glyphs read
+    # cramped at 1080p+ (especially when the stroke thickens on
+    # highlight, which visually nudges letters together).
+    t = Text(_spaced(label), font=theme.SANS_FALLBACK,
+             font_size=font_size, color=fg)
     pad_x, pad_y = 0.32, 0.14
     pill = RoundedRectangle(
         width=t.width + pad_x * 2, height=t.height + pad_y * 2,
@@ -499,8 +503,8 @@ class FullVideoV2(Scene):
         target.set_stroke(Paper.accent, width=1.8)
         self.play(Transform(so_chip, target, run_time=0.6))
 
-        left_drawer = _paper_card(width=6.4, height=4.4)
-        left_drawer.move_to(np.array([-3.55, 0.2, 0]))
+        left_drawer = _paper_card(width=6.4, height=4.0)
+        left_drawer.move_to(np.array([-3.55, 0.4, 0]))
         # Drawer drops in from beneath the header
         left_drawer.shift(UP * 0.6)
         self.play(
@@ -559,8 +563,9 @@ class FullVideoV2(Scene):
             """Reveal schema line idx, point a typed caption to its right.
 
             The type_label (String / Integer / Enum / Boolean) renders
-            BOLD in `type_color`; the tail (e.g. " [bard, cleric, rogue]")
-            renders in muted text. Pacing is ~30% slower than the
+            BOLD in `type_color`; the tail (e.g. "[bard, cleric, rogue]")
+            renders in muted text BELOW the type label so it doesn't
+            overflow the schema card. Pacing is ~30% slower than the
             original feedback round.
             """
             self.play(FadeIn(schema[idx], shift=LEFT * 0.1, run_time=0.4))
@@ -569,13 +574,16 @@ class FullVideoV2(Scene):
             type_t = Text(_spaced(type_label, n=1),
                           font=theme.MONO_FALLBACK, weight="BOLD",
                           font_size=13, color=type_color)
-            cap_grp = VGroup(arrow, type_t).arrange(RIGHT, buff=0.18)
+            top_row = VGroup(arrow, type_t).arrange(RIGHT, buff=0.18)
             if tail:
-                tail_t = Text(tail, font=theme.MONO_FALLBACK,
+                tail_t = Text(tail.strip(), font=theme.MONO_FALLBACK,
                               font_size=12, color=Paper.ink_soft)
-                cap_grp = VGroup(arrow, type_t, tail_t).arrange(
-                    RIGHT, buff=0.18,
+                # Stack tail under the top row, left-aligned to "← must"
+                cap_grp = VGroup(top_row, tail_t).arrange(
+                    DOWN, aligned_edge=LEFT, buff=0.06,
                 )
+            else:
+                cap_grp = top_row
             cap_grp.next_to(schema[idx], RIGHT, buff=0.35)
             self.play(FadeIn(cap_grp, shift=LEFT * 0.05, run_time=0.35))
             captions.append(cap_grp)
@@ -596,10 +604,21 @@ class FullVideoV2(Scene):
         # position (mirroring "structured output" upper-left).
         self.play(FadeOut(VGroup(*captions), run_time=0.35))
 
-        bridge_pre = Text(
-            "With structured output we've put typing",
+        # Highlight "typing" so it visually rhymes with "the logic"
+        # in the question line below — establishes the two sides of
+        # the same coin (typing ↔ the logic) before the dock-up.
+        pre_left = Text(
+            "With structured output we've put",
             font="Georgia", slant="ITALIC", font_size=18,
             color=Paper.ink_soft,
+        )
+        pre_typing = Text(
+            _spaced("typing"),
+            font="Georgia", weight="BOLD", font_size=18,
+            color=Paper.accent,
+        )
+        bridge_pre = VGroup(pre_left, pre_typing).arrange(
+            RIGHT, buff=0.22,
         )
         bridge_pre2 = Text(
             "directly into the decoding process.",
@@ -629,33 +648,43 @@ class FullVideoV2(Scene):
         self.play(FadeIn(question_row, shift=UP * 0.08, run_time=0.55))
         self.wait(2.0)
 
-        # Beat 2.D — fade everything except "the logic"; dock it to the
-        # upper-right header position. Mirrors "structured output" top-left.
-        logic_dock_target = _chip("the logic", font_size=16,
-                                  fg=Paper.accent, stroke=Paper.accent)
-        logic_dock_target.move_to(np.array([3.8, 3.55, 0]))
+        # Beat 2.D — fade everything except "the logic"; dock it to
+        # the upper-right header position. Critically, q_logic is the
+        # survivor and KEEPS its style (Georgia BOLD italic, _spaced,
+        # Paper.accent) all the way to the top — we wrap a pill around
+        # it instead of swapping for a generic chip.
+        dock_pos = np.array([3.8, 3.55, 0])
         # We DO NOT include `q_logic` in the fade-out — it's the survivor.
         self.play(
             FadeOut(VGroup(bridge_pre, bridge_pre2, q_left, q_right),
                     run_time=0.45),
         )
-        # Animate the survivor up to its dock position. We rebuild as a
-        # chip there to mirror so_chip's geometry; the text travels via
-        # a Transform on the survivor's center.
+        # Survivor flies up + scales down. Style preserved end-to-end.
         self.play(
-            q_logic.animate.move_to(logic_dock_target.get_center())
-                            .scale(0.8),
+            q_logic.animate.move_to(dock_pos).scale(0.8),
             run_time=0.7,
         )
-        # Place the chip behind the now-docked text and fade it in.
-        self.play(FadeIn(logic_dock_target, run_time=0.35))
-        # The text on top of the chip should be the chip's own label —
-        # remove the survivor and let the chip text take over.
-        self.remove(q_logic)
-        logic_chip = logic_dock_target
+        # Build a pill around the docked text — mirrors so_chip's
+        # geometry, but the label is the un-changed survivor itself.
+        pad_x, pad_y = 0.32, 0.14
+        logic_pill = RoundedRectangle(
+            width=q_logic.width + pad_x * 2,
+            height=q_logic.height + pad_y * 2,
+            corner_radius=0.22,
+            fill_color=Paper.card, fill_opacity=1.0,
+            stroke_color=Paper.accent, stroke_width=1.0,
+        )
+        logic_pill.move_to(q_logic.get_center())
+        # Force pill to render BEHIND q_logic from frame 1 of the fade
+        # so the text never flickers under a rising pill fill. z_index
+        # is renderer-level and beats add-order.
+        logic_pill.set_z_index(-1)
+        q_logic.set_z_index(1)
+        self.play(FadeIn(logic_pill, run_time=0.35))
+        logic_chip = VGroup(logic_pill, q_logic)
 
-        right_drawer = _paper_card(width=6.4, height=4.4)
-        right_drawer.move_to(np.array([3.55, 0.2, 0]))
+        right_drawer = _paper_card(width=6.4, height=4.0)
+        right_drawer.move_to(np.array([3.55, 0.4, 0]))
         right_drawer.shift(UP * 0.6)
         self.play(
             right_drawer.animate.shift(DOWN * 0.6),
@@ -663,47 +692,245 @@ class FullVideoV2(Scene):
             run_time=0.45,
         )
 
-        # Beat 2.E — draw the dm_turn @program in the right drawer.
+        # Beat 2.E — focus shift: structured output → the logic.
+        # Dim the upper-left "structured output" chip (it's no longer the
+        # focus); the logic chip stays accented. This is the moment the
+        # bolding swaps.
+        so_dim_target = _chip("structured output", font_size=16,
+                              fg=Paper.ink_soft, stroke=Paper.grid)
+        so_dim_target.move_to(so_chip.get_center())
+        self.play(Transform(so_chip, so_dim_target, run_time=0.4))
+
+        # Beat 2.F — draw the book_meeting @program in the right drawer.
+        # Picked for "the logic" framing — pure-logic example, no D&D
+        # scaffolding, leads with where= so it clearly anchors the
+        # "logic" framing. Only TWO callouts, both impossible in JSON
+        # Schema:
+        #   - named-predicate where= (in_business_hours)
+        #   - cross-field equation closing over a parameter
+        #
         # SYNTAX HIGHLIGHTED:
         #   @program (Paper.accent)
-        #   def keyword (Paper.accent_soft) — function name (Terminal.amber)
-        #   yield / if / return (Paper.accent_soft)
+        #   def / yield / return / lambda (Paper.accent_soft)
+        #   function name (Terminal.amber)
         #   gen.X attribute (Terminal.amber)
         #   strings (Paper.good), numbers (Terminal.blue)
-        right_anchor = np.array([0.7, 2.1, 0])
+        right_anchor = np.array([0.6, 2.0, 0])
         ACC = Paper.accent
         KW  = Paper.accent_soft   # keywords
         FN  = Terminal.amber      # function / attribute names
         ID  = Paper.ink           # identifiers + neutral
         DIM = Paper.ink_soft      # dimmed
         NUM = Terminal.blue
+        STR = Paper.good
         prog_rich = [
-            [("@program", ACC)],
-            [("def ", KW), ("dm_turn", FN), ("(", DIM),
-             ("scene", ID), ("):", DIM)],
-            [("    narration  = ", ID), ("yield ", KW),
-             ("gen.string", FN), ("(...)", DIM)],
-            [("    needs_roll = ", ID), ("yield ", KW),
-             ("gen.boolean", FN), ("()", DIM)],
-            [("    if ", KW), ("needs_roll", ID), (":", DIM)],
-            [("        dc     = ", ID), ("yield ", KW),
-             ("gen.integer", FN), ("(", DIM),
-             ("5", NUM), (", ", DIM), ("25", NUM), (")", DIM)],
-            [("        result = ", ID), ("yield ", KW),
-             ("gen.tool", FN), ("(", DIM)],
-            [("                     ", ID), ("roll_d20", FN),
-             (", dc=dc)", DIM)],
-            [("    npc_line   = ", ID), ("yield ", KW),
-             ("gen.string", FN), ("(...)", DIM)],
-            [("    return ", KW), ("{...}", DIM)],
+            [("business_hours = ", ID), ("range", FN), ("(", DIM),
+             ("9", NUM), (", ", DIM), ("18", NUM), (")", DIM),
+             ("   # 9..17 inclusive", DIM)],                             # 0
+            [],                                                          # blank row (visual spacer)
+            [("@program", ACC)],                                         # 1
+            [("def ", KW), ("book_meeting", FN), ("(", DIM),
+             ("duration_h", ID), (": ", DIM), ("int", FN),
+             ("):", DIM)],                                               # 2
+            [("    start = ", ID), ("yield ", KW),
+             ("gen.datetime", FN), ("(", DIM),
+             ("where=", ACC), ("lambda ", KW),
+             ("d", ID), (":", DIM)],                                     # 3
+            [("        d.hour ", ID), ("in ", KW),
+             ("business_hours", ID), (")", DIM)],                        # 4
+            [("    end   = ", ID), ("yield ", KW),
+             ("gen.datetime", FN), ("(", DIM),
+             ("where=", ACC), ("lambda ", KW),
+             ("e", ID), (":", DIM)],                                     # 5
+            [("        e", ID), (" ", DIM), ("-", DIM), (" ", DIM),
+             ("start", ID), (" ", DIM), ("==", DIM), (" ", DIM),
+             ("timedelta", FN), ("(", DIM),
+             ("hours", ID), ("=", DIM), ("duration_h", ID),
+             ("))", DIM)],                                               # 6
+            [("    return ", KW),
+             ('{"start": start, "end": end}', ID)],                      # 7
         ]
         prog = _rich_block(prog_rich, anchor=right_anchor,
-                           line_height=0.32, font_size=13)
+                           line_height=0.34, font_size=12)
+
+        # Two callouts:
+        #   start line — predicate constraint, callout sits at the def-line
+        #     y-coord (in vacant space) with an arrow pointing DOWN to the
+        #     `where=lambda d: d.hour in business_hours` portion.
+        #   end lines — cross-field equation (THE moment of the page).
+        #     The lambda-body wraps so the whole thing fits the drawer.
+        prog_lines = list(prog)
+        # Visual layout (after empty-row spacer is dropped by _rich_block):
+        #   [0] business_hours = range(9, 18)   # 9..17 inclusive
+        #   [1] @program
+        #   [2] def book_meeting(duration_h: int):
+        #   [3]     start = yield gen.datetime(where=lambda d:
+        #   [4]         d.hour in business_hours)
+        #   [5]     end   = yield gen.datetime(where=lambda e:
+        #   [6]         e - start == timedelta(hours=duration_h))
+        #   [7]     return {"start": start, "end": end}
+
+        # Stage 1: business_hours definition (alone) — establish the range.
+        self.play(FadeIn(prog_lines[0], shift=LEFT * 0.08, run_time=0.45))
+        self.wait(0.25)
+
+        # Stage 2: @program + def signature.
         self.play(LaggedStart(
-            *[FadeIn(ln, shift=LEFT * 0.08) for ln in prog],
-            lag_ratio=0.13, run_time=2.4,
+            *[FadeIn(ln, shift=LEFT * 0.08) for ln in prog_lines[1:3]],
+            lag_ratio=0.18, run_time=0.55,
         ))
+        self.wait(0.3)
+
+        frame_right = 7.0
+
+        # Lines 3 + 4 — start = yield gen.datetime(where=lambda d:
+        #                   d.hour in business_hours)
+        # Reveal both together so the wrapped predicate reads as one.
+        self.play(LaggedStart(
+            *[FadeIn(ln, shift=LEFT * 0.08) for ln in prog_lines[3:5]],
+            lag_ratio=0.20, run_time=0.6,
+        ))
+
+        # Predicate-constraint callout: just the label "predicate
+        # constraint" at the def-line y-coord. Diagonal down-arrow from
+        # the BOTTOM-LEFT of the label to the top of the "where="
+        # token on the start line, with "where=" underlined while the
+        # callout holds.
+        callout1 = Text(
+            "predicate constraint",
+            font="Georgia", slant="ITALIC",
+            font_size=12, color=Paper.accent,
+        )
+        # Anchor at def-line y, in vacant space to the right of the def
+        # signature.
+        callout1.next_to(prog_lines[2], RIGHT, buff=0.30)
+        if callout1.get_right()[0] > frame_right:
+            callout1.shift(LEFT * (callout1.get_right()[0] - frame_right))
+
+        # Find the "where=" token on the start line (prog_lines[3]).
+        # Token order in the rich-line VGroup mirrors the prog_rich
+        # entry: index 4 is "where=".
+        where_mob = prog_lines[3][4]
+
+        arrow_start = np.array([callout1.get_left()[0], callout1.get_bottom()[1], 0]) + np.array([0.05, -0.04, 0])
+        arrow_end = where_mob.get_top() + np.array([0, 0.04, 0])
+        callout1_arrow = Line(
+            arrow_start, arrow_end,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        # Arrowhead — V-tip oriented along the arrow's direction.
+        _dir = arrow_end - arrow_start
+        _dir_norm = _dir / np.linalg.norm(_dir)
+        _perp = np.array([-_dir_norm[1], _dir_norm[0], 0])
+        _head_len = 0.10
+        _head_spread = 0.07
+        head_l = Line(
+            arrow_end,
+            arrow_end - _dir_norm * _head_len + _perp * _head_spread,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        head_r = Line(
+            arrow_end,
+            arrow_end - _dir_norm * _head_len - _perp * _head_spread,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        # Underline of "where=" token.
+        where_underline = Line(
+            np.array([where_mob.get_left()[0],
+                      where_mob.get_bottom()[1] - 0.04, 0]),
+            np.array([where_mob.get_right()[0],
+                      where_mob.get_bottom()[1] - 0.04, 0]),
+            color=Paper.accent, stroke_width=1.6,
+        )
+        callout1_grp = VGroup(callout1, callout1_arrow, head_l, head_r,
+                              where_underline)
+        self.play(FadeIn(callout1_grp, shift=DOWN * 0.05, run_time=0.3))
         self.wait(2.4)
+        self.play(FadeOut(callout1_grp, run_time=0.25))
+
+        # Lines 5 + 6 — end = yield gen.datetime(where=lambda e:
+        #                   e - start == timedelta(hours=duration_h))
+        # Reveal both together so the wrapped equation reads as one.
+        self.play(LaggedStart(
+            *[FadeIn(ln, shift=LEFT * 0.08) for ln in prog_lines[5:7]],
+            lag_ratio=0.20, run_time=0.65,
+        ))
+        # Cross-field equation callout: positioned just LEFT of the
+        # equation line (prog_lines[6]), at the same y. Sits in the
+        # gap-and-drawer-edge area; a drawer-card-colored background
+        # panel sits behind the text so it reads cleanly even where it
+        # overlaps the right drawer's fill. Short horizontal arrow
+        # lands on "e - start ==" without crossing any program text.
+        callout2 = Text(
+            "cross-field equation",
+            font="Georgia", slant="ITALIC",
+            font_size=12, color=Paper.accent,
+        )
+        # Target: "e - start == " token on prog_lines[6] (index 0 —
+        # the first non-empty token of that row).
+        equation_mob = prog_lines[6][0]
+        equation_y = equation_mob.get_center()[1]
+        # Position: callout right edge sits ~0.18u left of the
+        # equation token's left edge — minus the width of the word
+        # "equation" so the label hangs well clear of the equation
+        # token (with a longer arrow connecting the two).
+        callout2.move_to(np.array([0, equation_y, 0]))
+        _equation_word_w = Text(
+            "equation", font="Georgia", slant="ITALIC", font_size=12,
+        ).width
+        target_right_x = (
+            equation_mob.get_left()[0] - 0.18 - _equation_word_w
+        )
+        callout2.shift(
+            np.array([target_right_x - callout2.get_right()[0], 0, 0])
+        )
+        # Background panel (drawer-card color) so the text reads cleanly
+        # against the right drawer's fill below.
+        callout2_bg = RoundedRectangle(
+            width=callout2.width + 0.22,
+            height=callout2.height + 0.14,
+            corner_radius=0.06,
+            fill_color=Paper.card,
+            fill_opacity=1.0,
+            stroke_opacity=0,
+        )
+        callout2_bg.move_to(callout2.get_center())
+
+        # Short horizontal arrow: bg right edge → equation left edge.
+        arrow2_start = np.array(
+            [callout2_bg.get_right()[0] + 0.04, equation_y, 0]
+        )
+        arrow2_end = np.array(
+            [equation_mob.get_left()[0] - 0.06, equation_y, 0]
+        )
+        callout2_arrow = Line(
+            arrow2_start, arrow2_end,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        # Arrowhead: V-tip pointing right at the equation token.
+        _dir2 = arrow2_end - arrow2_start
+        _dir2_norm = _dir2 / np.linalg.norm(_dir2)
+        _perp2 = np.array([-_dir2_norm[1], _dir2_norm[0], 0])
+        head_l2 = Line(
+            arrow2_end,
+            arrow2_end - _dir2_norm * 0.10 + _perp2 * 0.07,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        head_r2 = Line(
+            arrow2_end,
+            arrow2_end - _dir2_norm * 0.10 - _perp2 * 0.07,
+            color=Paper.accent, stroke_width=1.6,
+        )
+        # Order matters: bg first (back), then text + arrow on top.
+        callout2_grp = VGroup(callout2_bg, callout2, callout2_arrow,
+                              head_l2, head_r2)
+        self.play(FadeIn(callout2_grp, shift=RIGHT * 0.05, run_time=0.35))
+        self.wait(3.0)
+        self.play(FadeOut(callout2_grp, run_time=0.3))
+
+        # Line 7 — return {...}
+        self.play(FadeIn(prog_lines[7], shift=LEFT * 0.08, run_time=0.4))
+        self.wait(0.6)
 
         # Punchline caption
         punch = Text(
@@ -713,7 +940,7 @@ class FullVideoV2(Scene):
         )
         punch.to_edge(DOWN, buff=0.5)
         self.play(FadeIn(punch, shift=UP * 0.06, run_time=0.5))
-        self.wait(3.4)
+        self.wait(3.0)
 
         # Clean page (carry nothing forward except mental anchor).
         self.play(FadeOut(VGroup(so_chip, logic_chip, left_drawer,
@@ -738,7 +965,20 @@ class FullVideoV2(Scene):
         intro_grp.to_edge(UP, buff=0.7)
         self.play(FadeIn(intro, shift=UP * 0.1, run_time=0.4))
         self.play(FadeIn(intro2, shift=UP * 0.08, run_time=0.4))
-        self.wait(0.6)
+        self.wait(0.4)
+
+        # Punchline caption — short, single-line, italic terracotta.
+        # Reveals later, paired with the algebra-step highlight box on
+        # the right column (see Beat 3.C). Sits where the longer 3-line
+        # narration used to be, but reads as a single punchline.
+        punchline = Text(
+            "literally can't mess up",
+            font="Georgia", slant="ITALIC", font_size=18,
+            color=Paper.accent,
+        )
+        punchline.next_to(intro_grp, DOWN, buff=0.28)
+        # NOTE: punchline reveal happens later (after the constrained
+        # trace finishes drawing). Just instantiate here.
 
         # Beat 3.B — algebra_step source on the left, syntax-highlighted.
         anchor_l = np.array([-6.7, 0.9, 0])
@@ -774,9 +1014,13 @@ class FullVideoV2(Scene):
         ))
         self.wait(0.7)
 
-        # Highlight the where= line specifically
+        # Highlight the where= line specifically.
+        # Tighter vertical padding — earlier 1.18 height left a gap that
+        # almost touched the lines above and below; ~0.95 hugs the 3-line
+        # where= block more cleanly without clipping into the
+        # `gen.string(` line above or `return {...}` line below.
         where_box = RoundedRectangle(
-            width=5.4, height=1.18, corner_radius=0.10,
+            width=5.4, height=0.95, corner_radius=0.10,
             fill_color=Paper.accent, fill_opacity=0.10,
             stroke_color=Paper.accent, stroke_width=1.4,
         )
@@ -801,17 +1045,26 @@ class FullVideoV2(Scene):
         self.wait(1.8)
 
         # Beat 3.C — same problem, two runs (right side).
+        # All three right-side labels — "Solve:", "free text",
+        # "under @algebra_step" — anchor to the SAME left x-coordinate
+        # so the column reads aligned. Earlier each used a different
+        # alignment (some via move_to center, some via align_to LEFT).
+        right_left_x = 1.5  # shared LEFT-edge for the right column
         anchor_r_top = 1.5
         prob = Text("Solve:   3x + 5 = 14",
                     font=theme.MONO_FALLBACK, font_size=18,
                     color=Paper.ink_soft)
-        prob.move_to(np.array([3.7, anchor_r_top, 0]))
+        prob.shift(np.array([0, anchor_r_top, 0]) - prob.get_center()
+                   * np.array([0, 1, 0]))
+        prob.align_to(np.array([right_left_x, 0, 0]), LEFT)
         self.play(FadeIn(prob, run_time=0.3))
 
         # Two stacked outputs
-        free_label = Text("free text", font=theme.SANS_FALLBACK,
+        free_label = Text("Normal freetext, qwen 2.5 7b",
+                          font=theme.SANS_FALLBACK,
                           font_size=12, color=Paper.ink_soft)
-        free_label.move_to(np.array([1.5, anchor_r_top - 0.6, 0]))
+        free_label.move_to(np.array([0, anchor_r_top - 0.6, 0]))
+        free_label.align_to(np.array([right_left_x, 0, 0]), LEFT)
         free_lines = [
             ("3x = 14 - 5", Paper.ink),
             ("3x = 9", Paper.ink),
@@ -820,8 +1073,8 @@ class FullVideoV2(Scene):
         free_block = VGroup()
         for i, (t, c) in enumerate(free_lines):
             ln = _code_text(t, c, font_size=14)
-            ln.move_to(np.array([3.6, anchor_r_top - 1.05 - 0.36 * i, 0]))
-            ln.align_to(np.array([1.5, 0, 0]), LEFT)
+            ln.move_to(np.array([0, anchor_r_top - 1.05 - 0.36 * i, 0]))
+            ln.align_to(np.array([right_left_x, 0, 0]), LEFT)
             free_block.add(ln)
         # red strike-through on the wrong answer
         free_x_mark = Text("  ✗", font=theme.MONO_FALLBACK,
@@ -841,7 +1094,8 @@ class FullVideoV2(Scene):
         # in muted, OK-mark in green).
         cons_label = Text("under @algebra_step", font=theme.SANS_FALLBACK,
                           font_size=12, color=Paper.accent)
-        cons_label.move_to(np.array([1.5, anchor_r_top - 2.5, 0]))
+        cons_label.move_to(np.array([0, anchor_r_top - 2.5, 0]))
+        cons_label.align_to(np.array([right_left_x, 0, 0]), LEFT)
         # Build lines as token VGroups so call-name / arg / mark each
         # take their own colour without relying on t2c heuristics.
         cons_specs = [
@@ -856,23 +1110,49 @@ class FullVideoV2(Scene):
              ("  ✓", Paper.good)],
         ]
         cons_block = VGroup()
-        line_anchor_x = 1.5
         for i, tokens in enumerate(cons_specs):
             ln = _rich_line(tokens, font_size=12)
-            ln.align_to(np.array([line_anchor_x, 0, 0]), LEFT)
+            ln.align_to(np.array([right_left_x, 0, 0]), LEFT)
             ln.move_to(np.array([
                 ln.get_center()[0],
                 anchor_r_top - 2.92 - 0.34 * i,
                 0,
             ]))
-            ln.align_to(np.array([line_anchor_x, 0, 0]), LEFT)
+            ln.align_to(np.array([right_left_x, 0, 0]), LEFT)
             cons_block.add(ln)
         self.play(FadeIn(cons_label, run_time=0.3))
         self.play(LaggedStart(
             *[FadeIn(l, shift=LEFT * 0.06) for l in cons_block],
             lag_ratio=0.22, run_time=1.4,
         ))
-        self.wait(1.8)
+        self.wait(0.6)
+
+        # Orange highlight box around the algebra-step chain. Visual
+        # rhyme with the where_box on Page 2 / Beat 3.B (same stroke
+        # color, same corner radius, same stroke width). Singular box
+        # around the WHOLE chain — "this whole sequence is correct by
+        # construction" — paired with the "literally can't mess up"
+        # punchline fading in concurrently.
+        cons_top = cons_block[0].get_top()[1]
+        cons_bot = cons_block[-1].get_bottom()[1]
+        cons_left = min(ln.get_left()[0] for ln in cons_block)
+        cons_right = max(ln.get_right()[0] for ln in cons_block)
+        algebra_box_buff = 0.12
+        cons_box = RoundedRectangle(
+            width=(cons_right - cons_left) + 2 * algebra_box_buff,
+            height=(cons_top - cons_bot) + 2 * algebra_box_buff,
+            corner_radius=0.10,
+            fill_color=Paper.accent, fill_opacity=0.10,
+            stroke_color=Paper.accent, stroke_width=1.4,
+        )
+        cons_box.move_to(np.array([
+            (cons_left + cons_right) / 2,
+            (cons_top + cons_bot) / 2,
+            0,
+        ]))
+        self.play(FadeIn(cons_box, run_time=0.45),
+                  FadeIn(punchline, shift=UP * 0.06, run_time=0.45))
+        self.wait(2.0)
 
         # Beat 3.D — benchmark line + same weights, different gate.
         bench = Text(
@@ -893,8 +1173,10 @@ class FullVideoV2(Scene):
         # Clean page.
         self.play(FadeOut(VGroup(intro_grp, algebra, where_box,
                                   where_caption_grp,
+                                  punchline,
                                   prob, free_label, free_block, free_x_mark,
-                                  cons_label, cons_block, bench, gate),
+                                  cons_label, cons_block, cons_box,
+                                  bench, gate),
                           run_time=0.45))
 
     # ======================================================================
@@ -1094,7 +1376,7 @@ class FullVideoV2(Scene):
 
         # Roll emission — subbar bolds "roll".
         set_subbar(active_idx=1, run_time=0.3)
-        emit('@roll("persuasion", dc=14)', color=Paper.ink)
+        roll_line = emit('@roll("persuasion", dc=14)', color=Paper.ink)
         # Show the round-trip: client returns the resolved tool result.
         roll_arrow = Text("            ↓  client resolves",
                           font=theme.MONO_FALLBACK,
@@ -1114,15 +1396,63 @@ class FullVideoV2(Scene):
         self.play(FadeIn(roll_resolved, shift=LEFT * 0.08, run_time=0.35))
         idx[0] += 1
         trace_items.add(roll_resolved)
-        self.wait(1.2)
+        self.wait(0.6)
+
+        # ====================================================================
+        # Unification callout — the @roll line is structurally a
+        # `gen.tool` yield with ends_turn=True. Same syntax as @narrate
+        # / @meta, just with the flag flipped. We pause, point at the
+        # @roll line, and surface the thesis.
+        # ====================================================================
+        unify_arrow = Text("←", font=theme.MONO_FALLBACK,
+                           font_size=18, color=Paper.accent, weight="BOLD")
+        unify_arrow.next_to(roll_line, RIGHT, buff=0.18)
+        unify_l1 = Text(
+            _spaced("structured output & tools"),
+            font="Georgia", weight="BOLD", font_size=15,
+            color=Paper.accent,
+        )
+        unify_l2 = Text(
+            "same yield syntax —",
+            font="Georgia", slant="ITALIC", font_size=14,
+            color=Paper.ink,
+        )
+        unify_l3 = Text(
+            "only `ends_turn=True` distinguishes them.",
+            font="Georgia", slant="ITALIC", font_size=14,
+            color=Paper.ink_soft,
+        )
+        unify_grp = VGroup(unify_l1, unify_l2, unify_l3).arrange(
+            DOWN, aligned_edge=LEFT, buff=0.08,
+        )
+        unify_grp.next_to(unify_arrow, RIGHT, buff=0.2)
+        # Shift the whole callout (arrow + 3 text lines) DOWN so the
+        # top line doesn't overlap the @narrate continuation line above
+        # the @roll line. The arrow tail/head still points cleanly at
+        # the @roll line's right edge from below.
+        unify_shift = DOWN * 0.3
+        unify_arrow.shift(unify_shift)
+        unify_grp.shift(unify_shift)
+        # Flash: fade-in arrow + label, hold ~2s, fade out.
+        self.play(
+            FadeIn(unify_arrow, shift=LEFT * 0.1, run_time=0.4),
+            FadeIn(unify_grp, shift=LEFT * 0.06, run_time=0.5),
+        )
+        self.wait(2.2)
+        self.play(FadeOut(VGroup(unify_arrow, unify_grp), run_time=0.4))
+        self.wait(0.4)
 
         # Meta emission — subbar bolds "meta".
         set_subbar(active_idx=2, run_time=0.3)
-        emit('@meta("Haha — a 1. Sorry, won\'t cut it.")',
-             color=Paper.accent_soft, hold=1.4)
+        meta_line = emit(
+            '@meta("Haha — a 1. Sorry, won\'t cut it.")',
+            color=Paper.accent_soft, hold=1.4,
+        )
 
-        # Brief caption — anchored at bottom-right so it doesn't compete
-        # with the trace stream above.
+        # Brief caption — placed to the RIGHT of the @meta emission,
+        # at the same y, so the eye doesn't have to dart to the bottom
+        # of the page. The trace lives on the left half; the caption
+        # reads as a sidebar gloss to that exact line.
         meta_caption = Text(
             "@meta and @narrate are both string-typed —",
             font="Georgia", slant="ITALIC", font_size=14,
@@ -1136,8 +1466,8 @@ class FullVideoV2(Scene):
         meta_grp = VGroup(meta_caption, meta_caption2).arrange(
             DOWN, aligned_edge=LEFT, buff=0.1,
         )
-        meta_grp.to_edge(DOWN, buff=0.55)
-        meta_grp.shift(RIGHT * 0.6)
+        # Centered horizontally on the screen, at the y of @meta.
+        meta_grp.move_to(np.array([0, meta_line.get_center()[1], 0]))
         self.play(FadeIn(meta_grp, run_time=0.45))
         self.wait(2.4)
         self.play(FadeOut(meta_grp, run_time=0.35))
@@ -1322,13 +1652,21 @@ class FullVideoV2(Scene):
         self.play(FadeIn(ours, shift=UP * 0.06, run_time=0.5))
         self.wait(2.8)
 
-        # Mention "fields can reference Python program state, too" — fast.
-        bonus = Text(
-            "Fields can reference any Python program state.",
-            font="Georgia", slant="ITALIC", font_size=14,
-            color=Paper.ink_soft,
+        # Third reveal — same visual weight as "Predicates are Python."
+        # so all three lines stack as a single moment. Wrapped onto
+        # two visual rows so the line fits within the frame.
+        bonus_l1 = Text(
+            _spaced("Fields can reference any"),
+            font="Georgia", slant="ITALIC", weight="BOLD",
+            font_size=22, color=Paper.accent,
         )
-        bonus.to_edge(DOWN, buff=0.45)
+        bonus_l2 = Text(
+            _spaced("Python program state."),
+            font="Georgia", slant="ITALIC", weight="BOLD",
+            font_size=22, color=Paper.accent,
+        )
+        bonus = VGroup(bonus_l1, bonus_l2).arrange(DOWN, buff=0.08)
+        bonus.next_to(ours, DOWN, buff=0.4)
         self.play(FadeIn(bonus, shift=UP * 0.06, run_time=0.5))
         self.wait(2.8)
 

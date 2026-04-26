@@ -37,3 +37,6 @@ secrets/
 # Bench / logs
 *.log
 *.prof
+
+# Manim render cache (run-from-other-dir spillover)
+media/
