@@ -1,0 +1,2009 @@
+{
+  "model": "/Users/maltelandgren/models/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+  "subtask": "logical_deduction_three_objects",
+  "stamp": "2026-04-25_baseline",
+  "n_problems": 50,
+  "n_correct": 47,
+  "accuracy": 0.94,
+  "wall_time_s": 407.922516166931,
+  "max_turn_tokens": 256,
+  "max_calls": 7,
+  "runs": [
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 0,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.8498806660063565,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "blue jay",
+        "quail",
+        "falcon"
+      ],
+      "options": {
+        "(A)": "The blue jay is the second from the left",
+        "(B)": "The quail is the second from the left",
+        "(C)": "The falcon is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 1,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 3.816246292088181,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "motorcyle",
+        "limousine",
+        "convertible"
+      ],
+      "options": {
+        "(A)": "The motorcyle is the oldest",
+        "(B)": "The limousine is the oldest",
+        "(C)": "The convertible is the oldest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 2,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.9073748749215156,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "blue book",
+        "orange book",
+        "red book"
+      ],
+      "options": {
+        "(A)": "The blue book is the second from the left",
+        "(B)": "The orange book is the second from the left",
+        "(C)": "The red book is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 3,
+      "target": "(B)",
+      "extracted": null,
+      "correct": false,
+      "wall_time_s": 13.958450417034328,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 7,
+      "turn_end_reason": "max_calls",
+      "items": [
+        "robin",
+        "blue jay",
+        "crow"
+      ],
+      "options": {
+        "(A)": "The robin is the rightmost",
+        "(B)": "The blue jay is the rightmost",
+        "(C)": "The crow is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 4,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 3.4009289999958128,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "green book",
+        "red book",
+        "blue book"
+      ],
+      "options": {
+        "(A)": "The green book is the rightmost",
+        "(B)": "The red book is the rightmost",
+        "(C)": "The blue book is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 5,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 6.637290957849473,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "apples",
+        "peaches",
+        "mangoes"
+      ],
+      "options": {
+        "(A)": "The apples are the second-most expensive",
+        "(B)": "The peaches are the second-most expensive",
+        "(C)": "The mangoes are the second-most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 6,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.522857999894768,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "tractor",
+        "truck",
+        "minivan"
+      ],
+      "options": {
+        "(A)": "The tractor is the newest",
+        "(B)": "The truck is the newest",
+        "(C)": "The minivan is the newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 7,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.0723656250629574,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Eve",
+        "Rob",
+        "Mel"
+      ],
+      "options": {
+        "(A)": "Eve finished first",
+        "(B)": "Rob finished first",
+        "(C)": "Mel finished first"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 8,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 4.717668917030096,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "orange book",
+        "yellow book",
+        "blue book"
+      ],
+      "options": {
+        "(A)": "The orange book is the second from the left",
+        "(B)": "The yellow book is the second from the left",
+        "(C)": "The blue book is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 9,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.408274166053161,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "station wagon",
+        "minivan",
+        "truck"
+      ],
+      "options": {
+        "(A)": "The station wagon is the newest",
+        "(B)": "The minivan is the newest",
+        "(C)": "The truck is the newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 10,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.453906208043918,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "gray book",
+        "purple book",
+        "red book"
+      ],
+      "options": {
+        "(A)": "The gray book is the leftmost",
+        "(B)": "The purple book is the leftmost",
+        "(C)": "The red book is the leftmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 11,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 5.08513587503694,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "peaches",
+        "mangoes",
+        "apples"
+      ],
+      "options": {
+        "(A)": "The peaches are the second-most expensive",
+        "(B)": "The mangoes are the second-most expensive",
+        "(C)": "The apples are the second-most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 12,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 5.542525291908532,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "blue jay",
+        "falcon",
+        "hummingbird"
+      ],
+      "options": {
+        "(A)": "The blue jay is the second from the left",
+        "(B)": "The falcon is the second from the left",
+        "(C)": "The hummingbird is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 13,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 7.1952088749967515,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "minivan",
+        "bus",
+        "sedan"
+      ],
+      "options": {
+        "(A)": "The minivan is the second-newest",
+        "(B)": "The bus is the second-newest",
+        "(C)": "The sedan is the second-newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 14,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 6.044931916985661,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "hatchback",
+        "convertible",
+        "tractor"
+      ],
+      "options": {
+        "(A)": "The hatchback is the second-newest",
+        "(B)": "The convertible is the second-newest",
+        "(C)": "The tractor is the second-newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 15,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 11.3136100419797,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "loquats",
+        "watermelons",
+        "cantaloupes"
+      ],
+      "options": {
+        "(A)": "The loquats are the most expensive",
+        "(B)": "The watermelons are the most expensive",
+        "(C)": "The cantaloupes are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 16,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.179108708864078,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "mangoes",
+        "watermelons",
+        "kiwis"
+      ],
+      "options": {
+        "(A)": "The mangoes are the most expensive",
+        "(B)": "The watermelons are the most expensive",
+        "(C)": "The kiwis are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 17,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.5690336250700057,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "blue book",
+        "orange book",
+        "red book"
+      ],
+      "options": {
+        "(A)": "The blue book is the rightmost",
+        "(B)": "The orange book is the rightmost",
+        "(C)": "The red book is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 18,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.048965167021379,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Ada",
+        "Mel",
+        "Mya"
+      ],
+      "options": {
+        "(A)": "Ada finished last",
+        "(B)": "Mel finished last",
+        "(C)": "Mya finished last"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 19,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 5.408472958020866,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Mel",
+        "Ada",
+        "Ana"
+      ],
+      "options": {
+        "(A)": "Mel finished last",
+        "(B)": "Ada finished last",
+        "(C)": "Ana finished last"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 20,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.202152125071734,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "plums",
+        "apples",
+        "loquats"
+      ],
+      "options": {
+        "(A)": "The plums are the cheapest",
+        "(B)": "The apples are the cheapest",
+        "(C)": "The loquats are the cheapest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 21,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 4.076150999870151,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "black book",
+        "orange book",
+        "blue book"
+      ],
+      "options": {
+        "(A)": "The black book is the second from the left",
+        "(B)": "The orange book is the second from the left",
+        "(C)": "The blue book is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 22,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.532433208078146,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "convertible",
+        "motorcyle",
+        "truck"
+      ],
+      "options": {
+        "(A)": "The convertible is the oldest",
+        "(B)": "The motorcyle is the oldest",
+        "(C)": "The truck is the oldest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 23,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.47494616615586,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "apples",
+        "peaches",
+        "mangoes"
+      ],
+      "options": {
+        "(A)": "The apples are the cheapest",
+        "(B)": "The peaches are the cheapest",
+        "(C)": "The mangoes are the cheapest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 24,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.132946333149448,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Eve",
+        "Joe",
+        "Amy"
+      ],
+      "options": {
+        "(A)": "Eve finished first",
+        "(B)": "Joe finished first",
+        "(C)": "Amy finished first"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 25,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 6.256633667042479,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Eli",
+        "Mya",
+        "Eve"
+      ],
+      "options": {
+        "(A)": "Eli finished second",
+        "(B)": "Mya finished second",
+        "(C)": "Eve finished second"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 26,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.349656416103244,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "peaches",
+        "pears",
+        "mangoes"
+      ],
+      "options": {
+        "(A)": "The peaches are the most expensive",
+        "(B)": "The pears are the most expensive",
+        "(C)": "The mangoes are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 27,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 3.421297291992232,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "hatchback",
+        "convertible",
+        "tractor"
+      ],
+      "options": {
+        "(A)": "The hatchback is the oldest",
+        "(B)": "The convertible is the oldest",
+        "(C)": "The tractor is the oldest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 28,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 4.295316542033106,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "hummingbird",
+        "blue jay",
+        "raven"
+      ],
+      "options": {
+        "(A)": "The hummingbird is the rightmost",
+        "(B)": "The blue jay is the rightmost",
+        "(C)": "The raven is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 29,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.6507230000570416,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "purple book",
+        "red book",
+        "yellow book"
+      ],
+      "options": {
+        "(A)": "The purple book is the rightmost",
+        "(B)": "The red book is the rightmost",
+        "(C)": "The yellow book is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 30,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 7.203554000006989,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "watermelons",
+        "apples",
+        "mangoes"
+      ],
+      "options": {
+        "(A)": "The watermelons are the second-most expensive",
+        "(B)": "The apples are the second-most expensive",
+        "(C)": "The mangoes are the second-most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 31,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.1973634171299636,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Amy",
+        "Dan",
+        "Mel"
+      ],
+      "options": {
+        "(A)": "Amy finished first",
+        "(B)": "Dan finished first",
+        "(C)": "Mel finished first"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 32,
+      "target": "(C)",
+      "extracted": null,
+      "correct": false,
+      "wall_time_s": 13.47343379096128,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 7,
+      "turn_end_reason": "max_calls",
+      "items": [
+        "motorcyle",
+        "bus",
+        "tractor"
+      ],
+      "options": {
+        "(A)": "The motorcyle is the second-newest",
+        "(B)": "The bus is the second-newest",
+        "(C)": "The tractor is the second-newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 33,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.417945458786562,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "red book",
+        "blue book",
+        "orange book"
+      ],
+      "options": {
+        "(A)": "The red book is the second from the left",
+        "(B)": "The blue book is the second from the left",
+        "(C)": "The orange book is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 34,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 5.0336039159446955,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "motorcyle",
+        "minivan",
+        "tractor"
+      ],
+      "options": {
+        "(A)": "The motorcyle is the newest",
+        "(B)": "The minivan is the newest",
+        "(C)": "The tractor is the newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 35,
+      "target": "(A)",
+      "extracted": null,
+      "correct": false,
+      "wall_time_s": 15.59494095784612,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 7,
+      "turn_end_reason": "max_calls",
+      "items": [
+        "bus",
+        "sedan",
+        "truck"
+      ],
+      "options": {
+        "(A)": "The bus is the second-newest",
+        "(B)": "The sedan is the second-newest",
+        "(C)": "The truck is the second-newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 36,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 5.517526833107695,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "loquats",
+        "mangoes",
+        "apples"
+      ],
+      "options": {
+        "(A)": "The loquats are the most expensive",
+        "(B)": "The mangoes are the most expensive",
+        "(C)": "The apples are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 37,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 4.000243541086093,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "blue jay",
+        "quail",
+        "falcon"
+      ],
+      "options": {
+        "(A)": "The blue jay is the rightmost",
+        "(B)": "The quail is the rightmost",
+        "(C)": "The falcon is the rightmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 38,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 5.082761332858354,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "hawk",
+        "crow",
+        "raven"
+      ],
+      "options": {
+        "(A)": "The hawk is the second from the left",
+        "(B)": "The crow is the second from the left",
+        "(C)": "The raven is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 39,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 3.3432370838709176,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "brown book",
+        "yellow book",
+        "orange book"
+      ],
+      "options": {
+        "(A)": "The brown book is the leftmost",
+        "(B)": "The yellow book is the leftmost",
+        "(C)": "The orange book is the leftmost"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 40,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 5.458760249894112,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "loquats",
+        "mangoes",
+        "apples"
+      ],
+      "options": {
+        "(A)": "The loquats are the second-most expensive",
+        "(B)": "The mangoes are the second-most expensive",
+        "(C)": "The apples are the second-most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 41,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.3858330419752747,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "cantaloupes",
+        "oranges",
+        "watermelons"
+      ],
+      "options": {
+        "(A)": "The cantaloupes are the cheapest",
+        "(B)": "The oranges are the cheapest",
+        "(C)": "The watermelons are the cheapest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 42,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 3.278021332807839,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "apples",
+        "peaches",
+        "loquats"
+      ],
+      "options": {
+        "(A)": "The apples are the most expensive",
+        "(B)": "The peaches are the most expensive",
+        "(C)": "The loquats are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 43,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 3.341092250077054,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "owl",
+        "crow",
+        "cardinal"
+      ],
+      "options": {
+        "(A)": "The owl is the second from the left",
+        "(B)": "The crow is the second from the left",
+        "(C)": "The cardinal is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 44,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 7.280886667082086,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "oranges",
+        "mangoes",
+        "plums"
+      ],
+      "options": {
+        "(A)": "The oranges are the second-most expensive",
+        "(B)": "The mangoes are the second-most expensive",
+        "(C)": "The plums are the second-most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 45,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 5.172266749897972,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "quail",
+        "owl",
+        "hummingbird"
+      ],
+      "options": {
+        "(A)": "The quail is the second from the left",
+        "(B)": "The owl is the second from the left",
+        "(C)": "The hummingbird is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 46,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 3.3175691249780357,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "oranges",
+        "watermelons",
+        "pears"
+      ],
+      "options": {
+        "(A)": "The oranges are the most expensive",
+        "(B)": "The watermelons are the most expensive",
+        "(C)": "The pears are the most expensive"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 47,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 2.9771054999437183,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 1,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "Ana",
+        "Mel",
+        "Ada"
+      ],
+      "options": {
+        "(A)": "Ana finished first",
+        "(B)": "Mel finished first",
+        "(C)": "Ada finished first"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 48,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 6.739680624799803,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 3,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "sedan",
+        "tractor",
+        "bus"
+      ],
+      "options": {
+        "(A)": "The sedan is the second-newest",
+        "(B)": "The tractor is the second-newest",
+        "(C)": "The bus is the second-newest"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'B' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "C"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'C' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 49,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 5.423257834045216,
+      "n_premise_ok": 0,
+      "n_premise_rejected": 0,
+      "n_deduce_ok": 0,
+      "n_deduce_rejected": 0,
+      "n_answer_attempts": 2,
+      "turn_end_reason": "ends_turn",
+      "items": [
+        "green book",
+        "brown book",
+        "orange book"
+      ],
+      "options": {
+        "(A)": "The green book is the second from the left",
+        "(B)": "The brown book is the second from the left",
+        "(C)": "The orange book is the second from the left"
+      },
+      "trace": [
+        {
+          "name": "answer",
+          "args": [
+            "A"
+          ],
+          "rejected": true,
+          "error": "yield #0: choice 'A' failed where= predicate"
+        },
+        {
+          "name": "answer",
+          "args": [
+            "B"
+          ],
+          "rejected": false,
+          "error": null
+        }
+      ]
+    }
+  ]
+}

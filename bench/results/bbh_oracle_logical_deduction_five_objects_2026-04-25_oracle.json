@@ -1,0 +1,2010 @@
+{
+  "subtask": "logical_deduction_five_objects",
+  "stamp": "2026-04-25_oracle",
+  "n_problems": 250,
+  "n_correct": 250,
+  "accuracy": 1.0,
+  "wall_time_s": 0.1018949169665575,
+  "runs": [
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 0,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 1,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 2,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 3,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 4,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 5,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 6,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 7,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 8,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 9,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 10,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 11,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 12,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 13,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 14,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 15,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 16,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 17,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 18,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 19,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 20,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 21,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 22,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 23,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 24,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 25,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 26,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 27,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 28,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 29,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 30,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 31,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 32,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 33,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 34,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 35,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 36,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 37,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 38,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 39,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 40,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 41,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 42,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 43,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 44,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 45,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 46,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 47,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 48,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 49,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 50,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 51,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 52,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 53,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 54,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 55,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 56,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 57,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 58,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 59,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 60,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 61,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 62,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 63,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 64,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 65,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 66,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 67,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 68,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 69,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 70,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 71,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 72,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 73,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 74,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 75,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 76,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 77,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 78,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 79,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 80,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 81,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 82,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 83,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 84,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 85,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 86,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 87,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 88,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 89,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 90,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 91,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 92,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 93,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 94,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 95,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 96,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 97,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 98,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 99,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 100,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 101,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 102,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 103,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 5
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 104,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 105,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 106,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 107,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 108,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 109,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 110,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 111,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 112,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 113,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 114,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 115,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 116,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 117,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 118,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 119,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 120,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 121,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 122,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 123,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 124,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 125,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 126,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 127,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 128,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 129,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 130,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 131,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 132,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 133,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 134,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 135,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 136,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 137,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 138,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 5
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 139,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 140,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 141,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 142,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 143,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 144,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 145,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 146,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 147,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 148,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 149,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 150,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 151,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 152,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 153,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 154,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 155,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 156,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 157,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 158,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 159,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 160,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 161,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 162,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 163,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 164,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 165,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 166,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 167,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 168,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 169,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 170,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 171,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 172,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 173,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 174,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 175,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 176,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 177,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 178,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 179,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 180,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 181,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 182,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 183,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 184,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 185,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 186,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 187,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 188,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 189,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 190,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 191,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 192,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 193,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 194,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 195,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 196,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 197,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 198,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 199,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 200,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 201,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 202,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 203,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 204,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 205,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 206,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 207,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 208,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 209,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 210,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 211,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 212,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 213,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 214,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 215,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 216,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 217,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 218,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 219,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 220,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 221,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 222,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 223,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 224,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 225,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 226,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 227,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 228,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 229,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 230,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 231,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 232,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 233,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 234,
+      "target": "(D)",
+      "extracted": "(D)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 235,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 236,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 237,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 238,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 239,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 240,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 241,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 242,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 243,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 244,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 245,
+      "target": "(C)",
+      "extracted": "(C)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 246,
+      "target": "(A)",
+      "extracted": "(A)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 247,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 248,
+      "target": "(E)",
+      "extracted": "(E)",
+      "correct": true,
+      "n_premises": 4
+    },
+    {
+      "subtask": "logical_deduction_five_objects",
+      "index": 249,
+      "target": "(B)",
+      "extracted": "(B)",
+      "correct": true,
+      "n_premises": 4
+    }
+  ]
+}

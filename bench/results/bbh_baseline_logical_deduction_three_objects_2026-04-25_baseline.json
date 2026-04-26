@@ -1,0 +1,512 @@
+{
+  "model": "/Users/maltelandgren/models/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+  "subtask": "logical_deduction_three_objects",
+  "stamp": "2026-04-25_baseline",
+  "n_problems": 50,
+  "n_correct": 44,
+  "accuracy": 0.88,
+  "wall_time_s": 1033.0615225001238,
+  "max_tokens": 384,
+  "runs": [
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 0,
+      "target": "(A)",
+      "response": "(1) The falcon is to the right of the blue jay: \"(left) blue jay ? falcon ? (right)\".\n(2) The blue jay is to the right of the quail: \"(left) quail blue jay ? (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) quail blue jay falcon (right)\".\nAccording to this ordering, the blue jay is the second from the left.\nThe blue jay is the second from the left. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 24.3803612079937,
+      "output_chars": 398
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 1,
+      "target": "(B)",
+      "response": "(1) The motorcycle is newer than the limousine: \"limousine (newer) motorcycle\".\n(2) The convertible is newer than the motorcycle: \"limousine (newer) motorcycle (newer) convertible\".\n(3) Combining (1) and (2) we get the following ordering: \"limousine (newer) motorcycle (newer) convertible\".\nAccording to this ordering, the oldest vehicle is the limousine.\nThe limousine is the oldest. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 21.3803887499962,
+      "output_chars": 406
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 2,
+      "target": "(C)",
+      "response": "(1) The blue book is the rightmost: \"(left) ? ? blue (right)\".\n(2) The orange book is the leftmost: \"(left) orange ? ? blue (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) orange ? blue (right)\".\nSince the orange book is the leftmost and the blue book is the rightmost, the only position left for the red book is in the middle.\n\nThe red book is the second from the left. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 22.327130124904215,
+      "output_chars": 419
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 3,
+      "target": "(B)",
+      "response": "(1) The robin is to the right of the crow: \"(left) ? crow ? robin ? (right)\".\n(2) The robin is to the left of the blue jay: \"(left) crow robin ? blue jay (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) crow robin blue jay (right)\".\nAccording to this ordering, the rightmost bird is the blue jay.\nThe blue jay is the rightmost. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 22.185633291956037,
+      "output_chars": 375
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 4,
+      "target": "(B)",
+      "response": "(1) The red book is the rightmost: \"(left) ? ? red (rightmost)\".\n(2) The blue book is to the right of the green book: \"(left) green blue (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) green blue red (rightmost)\".\nAccording to this ordering, the rightmost book is the red book.\nThe red book is the rightmost. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 20.01813687500544,
+      "output_chars": 357
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 5,
+      "target": "(C)",
+      "response": "(1) The mangoes are less expensive than the peaches: \"apples ? mangoes < peaches\".\n(2) The apples are less expensive than the mangoes: \"apples < mangoes ? peaches\".\n(3) Combining (1) and (2) we get the following ordering: \"apples < mangoes < peaches\".\n\nAccording to this ordering, the peaches are the most expensive, the mangoes are the second-most expensive, and the apples are the least expensive.\n\nThe mangoes are the second-most expensive. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 21.712348750093952,
+      "output_chars": 465
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 6,
+      "target": "(C)",
+      "response": "(1) The minivan is newer than the truck: \"truck (newer) minivan\".\n(2) The tractor is older than the truck: \"tractor (older) truck (newer) minivan\".\n(3) Combining (1) and (2) we get the following ordering: \"tractor (older) truck (newer) minivan\".\nAccording to this ordering, the newest vehicle is the minivan.\nThe minivan is the newest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 19.416837165830657,
+      "output_chars": 357
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 7,
+      "target": "(A)",
+      "response": "(1) Rob finished below Mel: \"(above) ? Mel ? Rob ? (below)\".\n(2) Mel finished below Eve: \"(above) Eve Mel Rob (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Eve Mel Rob (below)\".\nAccording to this ordering, Eve is above Mel and Rob, which means Eve finished first.\nEve finished first. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 18.300003458047286,
+      "output_chars": 335
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 8,
+      "target": "(A)",
+      "response": "(1) The blue book is to the right of the yellow book: \"(left) ? yellow ? blue ? (right)\".\n(2) The orange book is the second from the left: \"(left) orange ? (right)\".\n(3) Combining (1) and (2) we need to fit the blue and yellow books into the sequence while maintaining their relative positions. Since the orange book is the second from the left, the sequence must be: \"(left) yellow orange blue (right)\".\nAccording to this ordering, the yellow book is the second from the left.\nThe yellow book is the second from the left. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": false,
+      "wall_time_s": 23.460673209046945,
+      "output_chars": 544
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 9,
+      "target": "(A)",
+      "response": "(1) The minivan is newer than the truck: \"truck (older) minivan (newer) ?\".\n(2) The station wagon is newer than the minivan: \"truck (older) minivan (newer) station wagon (newest)\".\n(3) Combining (1) and (2) we get the following ordering: \"truck (oldest) minivan (newer) station wagon (newest)\".\nAccording to this ordering, the newest vehicle is the station wagon.\nThe station wagon is the newest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 20.79132895800285,
+      "output_chars": 418
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 10,
+      "target": "(A)",
+      "response": "(1) The purple book is to the left of the red book: \"(left) ? purple ? red ? (right)\".\n(2) The gray book is to the left of the purple book: \"(left) gray purple red (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"gray purple red\".\n\nAccording to this ordering, the leftmost book is the gray book.\nThe gray book is the leftmost. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 18.880713749909773,
+      "output_chars": 367
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 11,
+      "target": "(C)",
+      "response": "(1) The peaches are more expensive than the apples: \"apples < peaches\".\n(2) The mangoes are the cheapest: \"mangoes < apples < peaches\".\n(3) Combining (1) and (2) we get the following ordering: \"mangoes < apples < peaches\".\n\nAccording to this ordering, the fruit that is the second-most expensive is the apples.\nThe apples are the second-most expensive. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 18.41401195898652,
+      "output_chars": 374
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 12,
+      "target": "(B)",
+      "response": "(1) The blue jay is to the right of the falcon: \"(left) ? falcon ? blue jay ? (right)\".\n(2) The hummingbird is to the left of the falcon: \"(left) hummingbird ? falcon ? blue jay ? (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) hummingbird falcon blue jay (right)\".\nAccording to this ordering, the falcon is the second from the left.\nThe falcon is the second from the left. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 23.199835792183876,
+      "output_chars": 422
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 13,
+      "target": "(A)",
+      "response": "(1) The minivan is newer than the sedan: \"sedan (newer) minivan\".\n(2) The minivan is older than the bus: \"minivan (older) bus\".\n(3) Combining (1) and (2) we get the following ordering: \"sedan (newer) minivan (older) bus\" or \"bus (newer) minivan (older) sedan\".\n\nFrom this ordering, we can see that the minivan is not the newest or the oldest, but it is the second-oldest. Therefore, the bus is the newest and the sedan is the second-newest.\n\nThe sedan is the second-newest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": false,
+      "wall_time_s": 24.653497916879132,
+      "output_chars": 495
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 14,
+      "target": "(A)",
+      "response": "(1) The convertible is older than the tractor: \"convertible (older) ? tractor (younger)\".\n(2) The hatchback is the second-newest: \"hatchback (second-newest) ? (newest)\".\n(3) Since the hatchback is the second-newest, the convertible must be the oldest and the tractor must be the newest: \"convertible (oldest) ? hatchback (second-newest) ? tractor (newest)\".\nAccording to this ordering, the second-newest vehicle is the hatchback.\nThe hatchback is the second-newest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 22.25769487489015,
+      "output_chars": 487
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 15,
+      "target": "(A)",
+      "response": "(1) The watermelons are the second-most expensive: \"most expensive ? watermelons ? second-most expensive ?\".\n(2) The loquats are more expensive than the cantaloupes: \"loquats > cantaloupes\".\n(3) Combining (1) and (2), we know that the loquats are not the most expensive, but they are more expensive than the cantaloupes. Therefore, the cantaloupes cannot be the most expensive either. The most expensive must be the fruit that is more expensive than the watermelons.\n(4) Since the watermelons are the second-most expensive, the most expensive fruit must be the one that is more expensive than the watermelons. Given that the loquats are more expensive than the cantaloupes, the only fruit left that can be more expensive than the watermelons is the loquats.\nThe loquats are the most expensive. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 31.126476124860346,
+      "output_chars": 815
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 16,
+      "target": "(A)",
+      "response": "(1) The watermelons are less expensive than the kiwis: \"watermelons < kiwis\".\n(2) The kiwis are the second-most expensive: \"mangoes < kiwis < watermelons\" or \"watermelons < kiwis < mangoes\".\n(3) Since the kiwis are the second-most expensive, the mangoes must be the most expensive in the first scenario and the watermelons must be the most expensive in the second scenario. However, the watermelons are less expensive than the kiwis, so the second scenario is not possible.\n(4) Therefore, the correct ordering is: \"mangoes < kiwis < watermelons\".\n\nAccording to this ordering, the mangoes are the most expensive. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 28.076671000104398,
+      "output_chars": 633
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 17,
+      "target": "(A)",
+      "response": "(1) The blue book is the rightmost: \"(left) ? ? blue (rightmost)\".\n(2) The orange book is the leftmost: \"(left) orange ? ? blue (rightmost)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) orange ? blue (rightmost)\".\nSince the orange book is the leftmost and the blue book is the rightmost, the only book left in the middle is the red book.\nThe red book is the middle book, and the blue book is the rightmost.\nThe blue book is the rightmost. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 22.782328166998923,
+      "output_chars": 481
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 18,
+      "target": "(C)",
+      "response": "(1) Mya finished below Ada: \"(above) Ada Mya (below)\".\n(2) Mel finished above Ada: \"(above) Mel Ada (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Mel Ada Mya (below)\".\nAccording to this ordering, the person who finished last (the one at the bottom of this list) is Mya.\nMya finished last. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 18.218511667102575,
+      "output_chars": 340
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 19,
+      "target": "(A)",
+      "response": "(1) Mel finished last: \"Mel (last)\".\n(2) Ana finished second: \"Mel (last), Ana (second)\".\n(3) Since there are only three golfers, the only position left for Ada is first: \"Ada (first), Mel (last), Ana (second)\".\nAccording to this ordering, Mel finished last.\nMel finished last. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 16.043339665979147,
+      "output_chars": 299
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 20,
+      "target": "(C)",
+      "response": "(1) The loquats are the cheapest: \"loquats < apples and plums\".\n(2) The plums are less expensive than the apples: \"loquats < plums < apples\".\n(3) Combining (1) and (2) we get the following ordering: \"loquats < plums < apples\".\nAccording to this ordering, the cheapest fruit is the loquats.\nThe loquats are the cheapest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 18.649784332839772,
+      "output_chars": 341
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 21,
+      "target": "(B)",
+      "response": "(1) The blue book is to the right of the orange book: \"(left) ? orange ? blue ? (right)\".\n(2) The orange book is to the right of the black book: \"(left) black orange ? (right) blue\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) black orange blue (right)\".\nAccording to this ordering, the orange book is the second from the left.\nThe orange book is the second from the left. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 20.118774375179783,
+      "output_chars": 415
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 22,
+      "target": "(C)",
+      "response": "(1) The motorcycle is newer than the convertible: \"(newer) convertible (newer) motorcycle (older)\".\n(2) The convertible is newer than the truck: \"(newer) truck (newer) convertible (newer) motorcycle (older)\".\n(3) Combining (1) and (2) we get the following ordering: \"(newer) truck (newer) convertible (newer) motorcycle (older)\".\nAccording to this ordering, the oldest vehicle is the truck.\nThe truck is the oldest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 20.332016750006005,
+      "output_chars": 437
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 23,
+      "target": "(A)",
+      "response": "(1) The mangoes are less expensive than the peaches: \"peaches > mangoes\".\n(2) The apples are less expensive than the mangoes: \"apples < mangoes\".\n(3) Combining (1) and (2) we get the following ordering: \"peaches > mangoes > apples\".\n\nAccording to this ordering, the apples are the cheapest.\nThe apples are the cheapest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 17.400369290960953,
+      "output_chars": 341
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 24,
+      "target": "(C)",
+      "response": "(1) Eve finished below Amy: \"(above) Amy ? Eve (below)\".\n(2) Eve finished above Joe: \"(above) Joe Eve (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Amy Eve Joe (below)\".\nAccording to this ordering, the person who finished first (the one at the top of this list) is Amy.\nAmy finished first. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 17.453716416843235,
+      "output_chars": 341
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 25,
+      "target": "(C)",
+      "response": "(1) Eve finished below Eli: \"(above) Eli ? Eve (below)\".\n(2) Eve finished above Mya: \"(above) Eve ? Mya (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Eli Eve Mya (below)\".\nAccording to this ordering, the second position is occupied by Eve.\nEve finished second. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 17.53751983307302,
+      "output_chars": 312
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 26,
+      "target": "(A)",
+      "response": "(1) The mangoes are less expensive than the peaches: \"peaches > mangoes\".\n(2) The mangoes are more expensive than the pears: \"pears < mangoes\".\n(3) Combining (1) and (2) we get the following ordering: \"peaches > mangoes > pears\".\n\nAccording to this ordering, the peaches are the most expensive. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 17.53608604101464,
+      "output_chars": 316
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 27,
+      "target": "(B)",
+      "response": "(1) The convertible is older than the tractor: \"tractor (older) ? convertible ? (younger)\".\n(2) The hatchback is the second-newest: \"tractor (older) ? hatchback (second-youngest) ? convertible (youngest)\".\n(3) Combining (1) and (2) we get the following ordering: \"tractor (oldest) ? hatchback (second-youngest) ? convertible (youngest)\".\nAccording to this ordering, the oldest vehicle is the tractor.\nThe tractor is the oldest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": false,
+      "wall_time_s": 20.767326000146568,
+      "output_chars": 449
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 28,
+      "target": "(B)",
+      "response": "(1) The blue jay is to the right of the hummingbird: \"(left) ? hummingbird ? blue jay ? (right)\".\n(2) The raven is the second from the left: \"(left) raven ? (right)\".\n(3) Combining (1) and (2) we need to fit the blue jay and hummingbird into the sequence while maintaining their relative positions. The only way to do this is: \"(left) raven hummingbird blue jay (right)\".\nAccording to this ordering, the rightmost bird is the blue jay.\nThe blue jay is the rightmost. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 23.273223374970257,
+      "output_chars": 488
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 29,
+      "target": "(A)",
+      "response": "(1) The purple book is to the right of the yellow book: \"(left) ? yellow ? purple ? (right)\".\n(2) The yellow book is to the right of the red book: \"(left) red yellow purple (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"red yellow purple\".\nAccording to this ordering, the rightmost book is the purple book.\nThe purple book is the rightmost. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 18.934858666965738,
+      "output_chars": 383
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 30,
+      "target": "(C)",
+      "response": "(1) The apples are less expensive than the mangoes: \"apples < mangoes\".\n(2) The mangoes are less expensive than the watermelons: \"mangoes < watermelons\".\n(3) Combining (1) and (2) we get the following ordering: \"apples < mangoes < watermelons\".\n\nAccording to this ordering, the mangoes are the second-most expensive.\nThe mangoes are the second-most expensive. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 19.629484167089686,
+      "output_chars": 381
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 31,
+      "target": "(C)",
+      "response": "(1) Mel finished above Amy: \"(above) ? Mel ? Amy ? (below)\".\n(2) Dan finished below Amy: \"(above) ? Amy ? Dan ? (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Mel Amy Dan (below)\".\nAccording to this ordering, the person who finished first (the one at the top of this list) is Mel.\nMel finished first. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 18.480772957904264,
+      "output_chars": 351
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 32,
+      "target": "(C)",
+      "response": "(1) The motorcycle is the oldest: \"oldest (motorcycle) newer (bus, tractor)\".\n(2) The bus is newer than the tractor: \"oldest (motorcycle) newer (bus) newer (tractor)\".\n(3) Combining (1) and (2) we get the following ordering: \"oldest (motorcycle) second-newest (bus) newest (tractor)\".\nAccording to this ordering, the bus is the second-newest.\nThe bus is the second-newest. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": false,
+      "wall_time_s": 19.99699412495829,
+      "output_chars": 394
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 33,
+      "target": "(C)",
+      "response": "(1) The red book is to the left of the orange book: \"(left) ? red ? orange ? (right)\".\n(2) The orange book is the second from the left: \"(left) red orange ? (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) red orange blue (right)\".\nAccording to this ordering, the orange book is the second from the left.\nThe orange book is the second from the left. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 20.118342709029093,
+      "output_chars": 397
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 34,
+      "target": "(C)",
+      "response": "(1) The minivan is older than the tractor: \"tractor (newer) minivan (older) ?\".\n(2) The minivan is the second-newest: \"motorcycle (newest) minivan (second-newest) ?\".\n(3) Combining (1) and (2) we get the following ordering: \"motorcycle (newest) minivan (second-newest) tractor (oldest)\".\nAccording to this ordering, the newest vehicle is the motorcycle.\nThe motorcycle is the newest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": false,
+      "wall_time_s": 20.268022292060778,
+      "output_chars": 405
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 35,
+      "target": "(A)",
+      "response": "(1) The truck is older than the bus: \"older (bus) younger (truck)\".\n(2) The bus is older than the sedan: \"older (bus) younger (sedan) younger (truck)\".\n(3) Combining (1) and (2) we get the following ordering: \"older (truck) younger (bus) youngest (sedan)\".\n\nAccording to this ordering, the bus is the second-newest vehicle.\nThe bus is the second-newest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 19.10468116705306,
+      "output_chars": 375
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 36,
+      "target": "(A)",
+      "response": "(1) The mangoes are more expensive than the apples: \"apples < mangoes\".\n(2) The loquats are more expensive than the mangoes: \"mangoes < loquats\".\n(3) Combining (1) and (2) we get the following ordering: \"apples < mangoes < loquats\".\n\nAccording to this ordering, the loquats are the most expensive.\nThe loquats are the most expensive. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 19.986174625111744,
+      "output_chars": 355
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 37,
+      "target": "(C)",
+      "response": "(1) The falcon is to the right of the blue jay: \"(left) blue jay (right) falcon ?\".\n(2) The blue jay is to the right of the quail: \"(left) quail blue jay (right) falcon ?\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) quail blue jay falcon (right)\".\nAccording to this ordering, the rightmost bird is the falcon.\nThe falcon is the rightmost. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 22.444544499972835,
+      "output_chars": 382
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 38,
+      "target": "(C)",
+      "response": "(1) The raven is to the right of the hawk: \"(left) hawk ? raven ? (right)\".\n(2) The crow is the rightmost: \"(left) hawk raven crow (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) hawk raven crow (right)\".\nAccording to this ordering, the hawk is the second from the left.\nThe hawk is the second from the left. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": false,
+      "wall_time_s": 19.368168167071417,
+      "output_chars": 357
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 39,
+      "target": "(B)",
+      "response": "(1) The yellow book is the leftmost: \"(left) yellow ? ? (right)\".\n(2) The orange book is to the right of the brown book: \"(left) ? brown orange ? (right)\".\n(3) Combining (1) and (2) we need to place the books in a way that satisfies both conditions. Since the yellow book is already the leftmost, the only way to fit the brown and orange books is: \"(left) yellow brown orange (right)\".\nAccording to this ordering, the leftmost book is the yellow book.\nThe yellow book is the leftmost. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 22.791616500122473,
+      "output_chars": 506
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 40,
+      "target": "(B)",
+      "response": "(1) The mangoes are more expensive than the apples: \"apples < mangoes\".\n(2) The loquats are more expensive than the mangoes: \"loquats > mangoes\".\n(3) Combining (1) and (2) we get the following ordering: \"apples < mangoes < loquats\".\n\nAccording to this ordering, the mangoes are the second-most expensive fruit.\n\nThe mangoes are the second-most expensive. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 18.485033083008602,
+      "output_chars": 376
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 41,
+      "target": "(C)",
+      "response": "(1) The oranges are the most expensive: \"cantaloupes, oranges, watermelons (most expensive)\".\n(2) The cantaloupes are more expensive than the watermelons: \"cantaloupes (more expensive) watermelons, oranges (most expensive)\".\n(3) Combining (1) and (2) we get the following ordering: \"cantaloupes, watermelons, oranges (most expensive)\".\nAccording to this ordering, the cheapest fruit is the watermelon.\nThe watermelons are the cheapest. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 22.06644312501885,
+      "output_chars": 457
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 42,
+      "target": "(B)",
+      "response": "(1) The loquats are less expensive than the apples: \"loquats < apples\".\n(2) The peaches are more expensive than the apples: \"apples < peaches\".\n(3) Combining (1) and (2) we get the following ordering: \"loquats < apples < peaches\".\n\nAccording to this ordering, the peaches are the most expensive.\nThe peaches are the most expensive. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 19.020923083182424,
+      "output_chars": 353
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 43,
+      "target": "(A)",
+      "response": "(1) The crow is to the left of the owl: \"(left) ? crow ? owl ? (right)\".\n(2) The owl is the second from the left: \"(left) ? crow owl ? (right)\".\n(3) Since the owl is the second from the left, the cardinal must be the leftmost: \"(left) cardinal crow owl (right)\".\nAccording to this ordering, the owl is the second from the left.\nThe owl is the second from the left. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 20.798575500026345,
+      "output_chars": 386
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 44,
+      "target": "(C)",
+      "response": "(1) The plums are less expensive than the mangoes: \"oranges ? plums < mangoes\".\n(2) The oranges are less expensive than the plums: \"oranges < plums ? mangoes\".\n(3) Combining (1) and (2) we get the following ordering: \"oranges < plums < mangoes\".\n\nAccording to this ordering, the mangoes are the most expensive, the plums are the second-most expensive, and the oranges are the least expensive.\n\nThe plums are the second-most expensive. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 21.688311042031273,
+      "output_chars": 456
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 45,
+      "target": "(B)",
+      "response": "(1) The quail is to the left of the owl: \"(left) quail owl ? (right)\".\n(2) The owl is to the left of the hummingbird: \"(left) quail owl hummingbird (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"(left) quail owl hummingbird (right)\".\nAccording to this ordering, the owl is the second from the left.\nThe owl is the second from the left. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 20.18356899986975,
+      "output_chars": 378
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 46,
+      "target": "(C)",
+      "response": "(1) The oranges are the second-most expensive: \"first-most ? oranges ? (second-most)\".\n(2) The pears are more expensive than the watermelons: \"pears ? watermelons ? (oranges)\".\n(3) Combining (1) and (2) we get the following ordering: \"pears ? watermelons ? oranges\" or \"pears ? oranges ? watermelons\".\nIn both possible orderings, the pears are the most expensive.\nThe pears are the most expensive. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 21.53723495802842,
+      "output_chars": 419
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 47,
+      "target": "(C)",
+      "response": "(1) Ada finished above Ana: \"(above) ? Ada ? Ana ? (below)\".\n(2) Mel finished below Ana: \"(above) Ada Ana ? Mel (below)\".\n(3) Combining (1) and (2) we get the following ordering: \"(above) Ada Ana Mel (below)\".\nAccording to this ordering, the person who finished first (the one at the top of this list) is Ada.\nAda finished first. So the answer is (C).",
+      "extracted": "(C)",
+      "correct": true,
+      "wall_time_s": 18.183643291005865,
+      "output_chars": 351
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 48,
+      "target": "(A)",
+      "response": "(1) The sedan is older than the tractor: \"sedan (older) tractor\".\n(2) The bus is older than the sedan: \"bus (older) sedan (older) tractor\".\n(3) Combining (1) and (2) we get the following ordering: \"bus (older) sedan (older) tractor\".\n\nAccording to this ordering, the second-newest vehicle is the sedan.\nThe sedan is the second-newest. So the answer is (A).",
+      "extracted": "(A)",
+      "correct": true,
+      "wall_time_s": 18.474561125040054,
+      "output_chars": 356
+    },
+    {
+      "subtask": "logical_deduction_three_objects",
+      "index": 49,
+      "target": "(B)",
+      "response": "(1) The brown book is to the left of the orange book: \"(left) ? brown ? orange ? (right)\".\n(2) The green book is to the left of the brown book: \"(left) green brown orange (right)\".\n(3) Combining (1) and (2) we get the following ordering: \"green brown orange\".\n\nAccording to this ordering, the brown book is the second from the left.\nThe brown book is the second from the left. So the answer is (B).",
+      "extracted": "(B)",
+      "correct": true,
+      "wall_time_s": 20.408954999875277,
+      "output_chars": 398
+    }
+  ]
+}
