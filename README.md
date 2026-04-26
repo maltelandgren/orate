@@ -177,6 +177,17 @@ Two caveats worth flagging:
 - **First-sample cold compile.** Up until commit [`f6046ac`](https://github.com/maltelandgren/orate/commit/f6046ac) the very first constrained call after a mode switch paid a ~200s XGrammar JIT-compile cost. A compiled-grammar cache (keyed by GBNF source) plus per-leaf body-grammar pre-warming during `Session.__init__` killed it; numbers above are steady-state from the first sample.
 - **Mask cost depends on grammar shape.** Wide grammars (e.g. `gen.string(max_len=140)` over printable ASCII) narrow the tok/s gap. Tight grammars (e.g. `gen.choice` over 4 options) widen it — most candidate logits get masked. The 7.3 tok/s number above is roughly the harder end of that spread.
 
+#### Throughput optimizations we didn't ship in the hackathon
+
+The 7.3 tok/s number is what an honest five-day implementation looks like. Things we explicitly considered and chose not to pursue under the deadline:
+
+- **JIT grammar segmentation.** When a `where=` closes over earlier yields (e.g. `algebra_step`'s third yield calling `equivalent_under(rule, before, after)`), the runtime falls back to syntactic-grammar sampling + post-hoc closure verification. The 16 rejections in the algebra bench are real tokens spent on rejected proposals. A compiler that walks the body, identifies yield-segments whose grammars are independent of earlier values, and fuses each segment into one grammar at compile time would eliminate most of these rejections — turning closure verification into closure-bound grammar narrowing wherever the predicate is cheaply enumerable. Vision doc: [`docs/design/jit-grammar-segmentation.md`](docs/design/jit-grammar-segmentation.md).
+- **Parser-state mask cache.** XGrammar recomputes the next-token mask on every step. For grammars with cycles (recursive rules, `chars+`-style bodies), the parser frequently revisits the same state with the same mask. A per-state mask cache could cut a noticeable fraction of the per-token overhead — but adding it correctly under the existing matcher API is a couple of days of plumbing we didn't have.
+- **Speculative decoding under a draft grammar.** Sample N tokens under a faster relaxed grammar, verify the prefix that satisfies the strict grammar in one pass, accept what survives. Standard spec-decode plumbing applied to the grammar mask rather than a draft model. Plausible 1.5–2× speedup on wide grammars where most tokens are easily predictable.
+- **Smarter T-escalation policy.** The current escalation is rejection-count-based (`0.0 → 0.5 → 1.0 → 1.5 → 2.0`). It breaks attractor lock on `eq_negative` but, as the post-`f6046ac` BBH probe revealed, can also let the model meander past the call budget on harder problems. A policy tied to parser state (e.g. only escalate when the rejection is on a closure-verified yield, not on grammar-syntactic rejection) would be more surgical.
+
+None of the above are blockers for the primitive working. They're the difference between *honest hackathon submission* and *production throughput*.
+
 The same pattern extends to **propositional logic** — see
 [`examples/legal_steps/logic.py`](examples/legal_steps/logic.py)
 (`@inference_step` with a `derivable_under` predicate covering modus
