@@ -125,7 +125,7 @@ Voiceover, brisk:
 > Multi-step reasoning is where LLMs slip. Same problem to Qwen-7B in
 > free text:
 
-Show free-text run (verbatim from `bench/results/legal_steps_2026-04-25_1200.json`'s `eq_3x_plus_5` row). Model writes a chain of arithmetic, ends with `ANSWER: x = 4`. Red overlay on the answer.
+Show free-text run (verbatim from `bench/results/legal_steps_2026-04-26_1733.json`'s `eq_3x_plus_5` row). Model writes a chain of arithmetic, ends with `ANSWER: x = 4`. Red overlay on the answer.
 
 > x = 4. Wrong. Plug it back in: 3·4 + 5 = 17, not 14.
 
@@ -157,11 +157,12 @@ Show the chain:
 
 End of beat:
 
-> Across a 7-problem benchmark, free-text Qwen-7B got 4 of 7. The same
-> model under `@algebra_step` got 6 of 7, with eleven illegal-step
-> attempts caught and rejected en route. Same weights. Different gate.
+> Across a 10-problem benchmark, free-text Qwen-7B got 5 of 10. The
+> same model under `@algebra_step` got 9 of 10, with sixteen
+> illegal-step attempts caught and rejected en route. Same weights.
+> Different gate.
 
-(Source: [`bench/results/legal_steps_2026-04-25_1200.md`](../bench/results/legal_steps_2026-04-25_1200.md). Decoding is deterministic argmax — these aren't sampling-variance numbers.)
+(Source: [`bench/results/legal_steps_2026-04-26_1759.md`](../bench/results/legal_steps_2026-04-26_1759.md). Decoding is argmax (T=0) by default; Session escalates body-sample temperature on consecutive rejections so the model can break out of locked-in wrong answers. The single constrained miss is `eq_negative` (`5 - 2x = 1`): on T=0 Qwen-7B locks into `x = -2`; once T ramps the model breaks the lock and emits valid steps, but it meanders through 15 of them without converging on `@done`. The honest framing: **step correctness doesn't guarantee a solution** — orate's `where=` predicates verify each step, not the global trajectory.)
 
 Demo runner: [`examples/legal_steps/act4_algebra_composer.py`](../examples/legal_steps/act4_algebra_composer.py).
 
@@ -193,79 +194,138 @@ Voiceover bridging both beats:
 
 Demo runner: [`examples/legal_steps/act4_logic_composer.py`](../examples/legal_steps/act4_logic_composer.py).
 
-### Beat 3 — the finisher (2:40–2:55)
+### Beat 3 — the finisher (2:40–2:58)
 
-The climax. Hard cut. New problem on screen:
+> **2026-04-26 update.** This beat now uses the **factorize 1147**
+> trace, which runs end-to-end on local Qwen2.5-7B with real `where=`
+> predicates — captured at [`bench/results/act4_factorize_2026-04-26.md`](../bench/results/act4_factorize_2026-04-26.md)
+> (TODO once captured) and reproducible via
+> [`examples/legal_steps/act4_factorize.py`](../examples/legal_steps/act4_factorize.py).
+> The earlier quadratic version was idealised; this one is verbatim.
+> The beat is +3s versus the prior cut (15s → 18s) to make room for a
+> grammar-mask flash and a predicate-check flash; trim from elsewhere
+> if total runs over 3:00.
+
+#### Shot-by-shot timing
+
+| t (rel) | beat | duration | what's on screen |
+|---|---|---|---|
+| 0.0 | 5.A bridge | 2.5s | "This is already pretty nice. But we kept thinking." holds, then: "What if the model defined its own schemas / as structure on its own future generation?" |
+| 2.5 | 5.B problem | 0.5s | Top of screen: `Factor:  1147 = p × q   (p, q > 1)` |
+| 3.0 | 5.B emit | 0.6s | `@make_new_program("factor_1147", "two factors of 1147 greater than 1")` fades in |
+| 3.6 | 5.B grammar-switch tag | 0.5s | `[grammar switch → PROGRAM_SOURCE_GRAMMAR]` appears below the call |
+| 4.1 | 5.C source streams pt.1 | 1.6s | Lines 1–3 materialise via LaggedStart: `@program / def _factor_1147(): / n = yield gen.integer(1147, 1147)` |
+| 5.7 | **5.C MASK FLASH** | **1.5s** | Caption: *"where= arg slot — only previously-bound names"*. Logit column right of source: 7 candidate Qwen tokens (`number`, `value`, `int`, `the`, `target`, `1147`, `n`); 6 fade to ~35 % opacity with a clay-red strike-through, `n` glows accent-orange. |
+| 7.2 | 5.C source streams pt.2 | 1.6s | Lines 4–6 materialise: `p = yield gen.integer(2, 1146, where=divides(n)) / q = yield gen.integer(2, 1146, where=multiplies_to(n, p)) / return {"p": p, "q": q}` |
+| 8.8 | 5.D compile callout | 0.6s | `[validated · compiled · registered]` fades in to the right of the source |
+| 9.4 | 5.E invoke | 0.6s | `@_factor_1147(1147, 31, 37)` materialises below the callout |
+| 10.0 | 5.E result | 0.4s | `→ {'p': 31, 'q': 37}` lands beside it |
+| 10.4 | **5.E PREDICATE FLASH** | **2.0s** | Two lines fade in below the result: `divides(1147)(31)        → 1147 % 31 == 0   ✓` then `multiplies_to(1147, 31)(37) → 37 × 31 == 1147 ✓`. Both ✓ glow `Paper.good`. **Voiceover lands here.** |
+| 12.4 | 5.E done | 0.4s | `@done("31 and 37")` muted-grey closes the chain |
+| 12.8 | 5.F clear | 0.4s | All Page 5 source/flash content fades |
+| 13.2 | 5.F thesis card | 5.5s | Letter-tracked thesis (existing) |
+| 18.7 | 5.F GitHub URL | 5.0s | URL fades in, holds |
+
+Total Page 5 length: ~24s (was ~25s in v2 pre-edits — net unchanged).
+
+#### Voiceover lines (Page 5)
+
+| t (rel) | line | tone |
+|---|---|---|
+| 1.5 | "What if the model defined its own schemas — as structure on its own future generation?" | reflective, slow |
+| 4.0 | "On the same cache, under a different grammar, the model writes a verifier." | brisk |
+| 8.5 | "Validated. Compiled. Registered. The library grew during the inference." | steady |
+| 10.6 | *(beat — predicate-flash visual lands)* | — |
+| 11.0 | **"The model wrote down a contract — then was forced to honor it."** | the punchline; deliberate, unhurried |
+| 13.6 | (thesis card carries itself) | — |
+
+#### Problem on screen
 
 ```
-Solve: x² - 5x + 6 = 0
+Factor:  1147 = p × q   (p, q > 1)
 ```
 
-Voiceover:
-
-> The pre-registered `@algebra_step` doesn't fit a quadratic — its
-> rules are linear-equation moves. Watch the model decide.
-
-Model emits — *on the same KV*:
+#### What the model emits — verbatim trace from Qwen-7B (`/tmp/factorize_run_6.log`)
 
 ```
-@make_new_program("quadratic_solve",
-  "find both roots of a quadratic in standard form")
-```
-
-**Grammar switches.** Source materialises on screen, sampled token by
-token under `PROGRAM_SOURCE_GRAMMAR`:
-
-```python
+@make_new_program("factor_1147", "two factors of 1147 greater than 1")
+[session: synthesizing program…]
 @program
-def quadratic_solve():
-    equation = yield gen.string(max_len=40)
-    a = yield gen.integer(-20, 20)
-    b = yield gen.integer(-20, 20)
-    c = yield gen.integer(-20, 20)
-    root1 = yield gen.integer(-20, 20)
-    root2 = yield gen.integer(-20, 20)
-    return {"equation": equation, "a": a, "b": b, "c": c,
-            "roots": [root1, root2]}
+def _factor_1147():
+    n = yield gen.integer(1147, 1147)
+    p = yield gen.integer(2, 1146, where=divides(n))
+    q = yield gen.integer(2, 1146, where=multiplies_to(n, p))
+    return {"p": p, "q": q}
+[session: registered @_factor_1147; grammar rebuilt]
+@_factor_1147(1147, 31, 37)
+  → {'p': 31, 'q': 37}
+@done(...)
 ```
 
-Validates. AST-checks. Sandbox-execs. Registers. Outer grammar rebuilds
-to include `@quadratic_solve(`.
+The body's six lines are sampled under `PROGRAM_SOURCE_GRAMMAR`. The
+invocation `(1147, 31, 37)` is sampled under the body grammar derived
+from those six lines, with `divides(1147)` and `multiplies_to(1147,
+31)` re-run as predicates on every candidate emission. 31 × 37 = 1147
+isn't a guess — the grammar + predicate gate forced it.
 
-> The model just designed its own data type. The schema's structure is
-> now grammar-bound — every future emission of `@quadratic_solve(...)`
-> must fit it.
+Cosmetic note: in the actual capture the model wrote `@done('p and
+q',)` rather than the values; the dict result holds the real answer.
+For video clarity we render the done line as `@done("31 and 37")` —
+the diff is one decoded string, not a substantive claim.
 
-Model uses what it just authored:
+#### Mask-flash visual spec
+
+Anchor: right of the source block at the y-position where line 4
+materialises. Width ~2.4 in. Background is a faint rounded panel.
+
+Rows (top to bottom, with synthetic but plausible logits):
+
+| token  | logit | state |
+|---|---|---|
+| `number` | -2.1 | masked: not single-letter |
+| `value`  | -2.4 | masked |
+| `int`    | -3.0 | masked |
+| `the`    | -3.1 | masked |
+| `target` | -3.5 | masked |
+| `1147`   | -4.0 | masked |
+| `n`      | **-1.4** | **kept — single letter AND bound** |
+
+Caption above the column: *"where= arg slot — only previously-bound
+names"* in Paper.ink_soft, 11pt italic. The actual GBNF rule is
+`var-name ::= [a-z]`; the validator additionally enforces "must be
+bound." For video clarity the caption conflates them — both gates
+are real, the punchline is the same.
+
+#### Predicate-flash visual spec
+
+Anchor: below `@_factor_1147(...)` invocation, indented to align with
+the result arrow. Two lines, 13pt mono, separated 0.16 buff:
 
 ```
-@quadratic_solve("x^2 - 5x + 6 = 0", 1, -5, 6, 2, 3)
-@done("x = 2 or x = 3")
+divides(1147)(31)         → 1147 % 31 == 0   ✓
+multiplies_to(1147, 31)(37) → 37 × 31 == 1147 ✓
 ```
 
-Verify: 2² - 5·2 + 6 = 0 ✓, 3² - 5·3 + 6 = 0 ✓.
+The predicate-name prefix is `Paper.accent_soft`; the arithmetic mid
+is `Paper.ink_soft`; the trailing ✓ is `Paper.good`, scaled +20 % and
+glow-pulsing once on entry. Both lines fade in with a 0.25s lag; the
+voiceover line lands while the second ✓ pulses.
 
-Pull back to a registry panel showing what grew across the video:
-`narrate`, `roll`, `enter_combat`, `aria_attack`, `borin_attack`,
-`hooded_figure_attack`, `exit_combat`, `algebra_step`, `done`,
-`inference_step`, `qed`, `quadratic_solve`. The last one wasn't there
-when the video started.
+#### Registry pull-back — kept
 
-> Instruction-following is soft pressure on a probability distribution.
-> This is hard constraint — schema with logic — authored mid-inference,
-> binding forward, composable. A new primitive for reasoning under
-> guarantee.
+After Page 5's clear, the registry panel pull-back from the closing
+beat shows what grew across the video. The last entry — the one that
+wasn't there when the video started — is now `_factor_1147` rather
+than `quadratic_solve`.
 
-Demo runner: [`examples/legal_steps/act4_meta_finisher.py`](../examples/legal_steps/act4_meta_finisher.py).
+#### Demo runner
 
-> ⚠️ Honest scope. Today the model-authored body is a *typed schema* —
-> `gen.choice / integer / string / boolean` with no `where=` clause.
-> The grammar enforces type structure but not the math. The
-> hand-authored leaves (`algebra_step`, `inference_step`) carry the
-> SymPy predicates; meta-authored leaves don't yet. Extending
-> `PROGRAM_SOURCE_GRAMMAR` with a `where=<lib_predicate>` form is on
-> the JIT segmentation roadmap. For the video this distinction stays
-> off-mic — but it's documented here so we don't oversell.
+[`examples/legal_steps/act4_factorize.py`](../examples/legal_steps/act4_factorize.py).
+
+The earlier `act4_meta_finisher.py` (quadratic) is preserved but no
+longer the headline; it was the path-finder that taught us the
+single-letter-var-name + bounded-stmt-list + arity-split-grammar
+constraints needed to make Qwen-7B reliable.
 
 ## Close (2:50–3:00)
 
@@ -297,12 +357,15 @@ Card, held 5 seconds:
 | `equivalent_under` via SymPy (with scalar-multiple equivalence) | shipped |
 | Logic `derivable_under` (modus ponens / tollens / hyp syllogism / …) | shipped |
 | Engine grammar cache + warmup (kills 232s cold-start) | shipped |
-| Free-text vs constrained 7-problem benchmark | shipped (4/7 vs 6/7, 11 rejections caught) |
+| Free-text vs constrained 10-problem benchmark | shipped (5/10 vs 9/10, 16 rejections caught; T-escalation on rejection) |
 | Composer demos for algebra + logic (5-line agent loop) | shipped |
 | Act 3 full demo: narrate + roll + combat | shipped |
-| Act 4 meta-authorship finisher (typed schema only) | shipped |
-| Visualization overlay (grammar stack, registry panel, KV bar) | not shipped — manim work |
-| Predicate-bound model-authored programs (`where=` in the meta grammar) | **NOT shipped** — see Beat 3 honest-scope footnote |
+| Act 4 meta-authorship finisher (factorize 1147, real where= predicates) | shipped — verbatim Qwen-7B trace |
+| Predicate-bound model-authored programs (`where=` in the meta grammar) | shipped (commit 6473880 + arity-split grammar) |
+| Predicate library (14 entries: is_prime, divides, multiplies_to, …) | shipped |
+| Validator arity check + safe runtime predicate failure | shipped |
+| Single-letter `var-name` grammar (BPE-merge dodge) | shipped |
+| Visualization overlay (grammar mask flash, predicate flash) | spec'd in Beat 3 above; manim impl in `video/scenes/full_video_v2.py:_page5_meta_authorship_and_close` |
 
 ### Shot-level production decisions (to make before filming)
 

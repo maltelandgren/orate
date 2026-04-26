@@ -30,6 +30,7 @@ from manim import (
     DOWN,
     FadeIn,
     FadeOut,
+    Indicate,
     LEFT,
     LaggedStart,
     Line,
@@ -1155,8 +1156,15 @@ class FullVideoV2(Scene):
         self.wait(2.0)
 
         # Beat 3.D — benchmark line + same weights, different gate.
+        # Source: bench/results/legal_steps_2026-04-26_1759.md
+        # (Qwen2.5-7B-Instruct-Q4_K_M, T=0 by default with Session-
+        # level escalation on rejection; 10 algebra problems × 2
+        # modes). The single constrained miss is eq_negative — model
+        # escapes the locked `x = -2` once T ramps up but then
+        # meanders through valid no-progress steps without committing
+        # to @done. A clean reminder: step correctness ≠ solution.
         bench = Text(
-            "free-text 4/7   ·   constrained 6/7   ·   11 illegal-step rejections",
+            "free-text 5/10   ·   constrained 9/10   ·   16 illegal-step rejections",
             font=theme.MONO_FALLBACK, font_size=14, color=Paper.ink_soft,
         )
         bench.to_edge(DOWN, buff=0.55)
@@ -1688,7 +1696,7 @@ class FullVideoV2(Scene):
         )
         bridge.move_to(UP * 0.5)
         self.play(FadeIn(bridge, shift=UP * 0.08, run_time=0.5))
-        self.wait(2.4)
+        self.wait(2.9)
 
         question = Text(
             "What if the model defined its own schemas",
@@ -1702,42 +1710,146 @@ class FullVideoV2(Scene):
         question_grp.move_to(DOWN * 0.4)
         self.play(FadeIn(question, shift=UP * 0.08, run_time=0.5))
         self.play(FadeIn(question2, shift=UP * 0.08, run_time=0.55))
-        self.wait(3.4)
+        self.wait(4.0)
         self.play(FadeOut(VGroup(bridge, question_grp), run_time=0.45))
 
-        # Beat 5.B — problem on screen, then meta-call, then source materialises.
-        prob = Text("Solve:   x² − 5x + 6 = 0",
-                    font=theme.MONO_FALLBACK, font_size=20,
+        # ====================================================================
+        # Grammar selector — same idiom as Page 4 (D&D). Lives at the top
+        # throughout Page 5; reflects the current outer-grammar alternation
+        # the model is decoding under. Starts as [done | make_new_program],
+        # grows by one alternative when @_factor_1147 registers.
+        #
+        # Both active and inactive tabs use BOLD weight so the bar's width
+        # doesn't shift when active state moves — only color and underline
+        # differentiate. Avoids the flimsy resize feel.
+        # ====================================================================
+        SEL_Y = 2.85
+
+        def _tab_p5(name: str, active: bool, font_size: int = 13) -> VGroup:
+            color = Paper.accent if active else Paper.ink_soft
+            t = Text(name, font=theme.MONO_FALLBACK,
+                     weight="BOLD",
+                     font_size=font_size, color=color)
+            grp = VGroup(t)
+            if active:
+                ul = Line(
+                    t.get_corner(np.array([-1, -1, 0])) + np.array([0, -0.06, 0]),
+                    t.get_corner(np.array([1, -1, 0])) + np.array([0, -0.06, 0]),
+                    stroke_color=Paper.accent, stroke_width=2.0,
+                )
+                grp.add(ul)
+            return grp
+
+        def _selector(names: list[str], active_idx: int | None,
+                      font_size: int = 13) -> VGroup:
+            """Render `[ a | b | c ]`; if active_idx is None, no tab is hot."""
+            lb = Text("[", font=theme.MONO_FALLBACK, font_size=font_size,
+                      color=Paper.ink_soft)
+            rb = Text("]", font=theme.MONO_FALLBACK, font_size=font_size,
+                      color=Paper.ink_soft)
+            row = VGroup(lb)
+            for i, n in enumerate(names):
+                row.add(_tab_p5(n, active=(i == active_idx),
+                                 font_size=font_size))
+                if i < len(names) - 1:
+                    row.add(Text("|", font=theme.MONO_FALLBACK,
+                                  font_size=font_size, color=Paper.mute))
+            row.add(rb)
+            row.arrange(RIGHT, buff=0.18)
+            return row
+
+        # "Grammar" label sits to the left of the bracketed alternatives,
+        # in the same style as Page 4's "Many grammars" outer label.
+        sel_label = Text("Grammar", font=theme.SANS_FALLBACK,
+                         font_size=14, color=Paper.ink_soft)
+        sel_label.move_to(np.array([-3.7, SEL_Y, 0]))
+
+        sel_state = {"current": None, "names": ["done", "make_new_program"],
+                     "active": None}
+
+        def set_selector(names: list[str] | None = None,
+                         active_idx: int | None = None,
+                         run_time: float = 0.35) -> VGroup:
+            new_names = names if names is not None else sel_state["names"]
+            new_bar = _selector(new_names, active_idx)
+            # Anchor the bar's left edge to a fixed x so growth extends to
+            # the right rather than reflowing around the screen centre.
+            new_bar.move_to(np.array([0.0, SEL_Y, 0]))
+            new_bar.align_to(np.array([-2.7, 0, 0]), LEFT)
+            old = sel_state["current"]
+            if old is None:
+                self.play(
+                    FadeIn(sel_label, run_time=run_time),
+                    FadeIn(new_bar, shift=DOWN * 0.06, run_time=run_time),
+                )
+            else:
+                self.play(
+                    FadeOut(old, run_time=run_time * 0.4),
+                    FadeIn(new_bar, run_time=run_time),
+                )
+            sel_state["current"] = new_bar
+            sel_state["names"] = new_names
+            sel_state["active"] = active_idx
+            return new_bar
+
+        # Initial selector — neutral (no tab hot yet).
+        set_selector(active_idx=None, run_time=0.45)
+        self.wait(0.3)
+
+        # Blink the make_new_program tab to telegraph what's about to fire.
+        # The tab is at position [, done, |, make_new_program, ]  → child #3.
+        bar = sel_state["current"]
+        self.play(Indicate(bar[3], color=Paper.accent, scale_factor=1.18),
+                  run_time=0.7)
+        self.wait(0.3)
+
+        # ====================================================================
+        # BEAT 5.A — making the new program
+        # ====================================================================
+        # The trace below is verbatim from /tmp/factorize_run_6.log
+        # (Qwen2.5-7B local, deterministic argmax) — see
+        # docs/video_script.md Beat 3 for shot-by-shot timing.
+        #
+        # Layout invariant: model generation lives in the LEFT column
+        # (anchor x ≈ -6.0); grammar explanations / mask flashes / the
+        # predicate flash live in the RIGHT column (x ≈ +1.5). The
+        # vertical stack on the left reads as one continuous KV cache.
+        LEFT_X = -6.0  # left column anchor for left-aligned text
+
+        prob = Text("Factor:   1147 = p × q   (p, q > 1)",
+                    font=theme.MONO_FALLBACK, font_size=16,
                     color=Paper.ink_soft)
-        prob.to_edge(UP, buff=0.5)
+        prob.move_to(np.array([LEFT_X, 2.25, 0]), aligned_edge=LEFT)
         self.play(FadeIn(prob, run_time=0.35))
+        self.wait(0.6)
 
         # The model emits @make_new_program first.
         emit_call = Text(
-            '@make_new_program("quadratic_solver",',
-            font=theme.MONO_FALLBACK, font_size=15, color=Paper.accent,
+            '@make_new_program("factor_1147",',
+            font=theme.MONO_FALLBACK, font_size=13, color=Paper.accent,
         )
         emit_call2 = Text(
-            '                  "find roots of a quadratic")',
-            font=theme.MONO_FALLBACK, font_size=15, color=Paper.accent,
+            '                  "two factors of 1147 greater than 1")',
+            font=theme.MONO_FALLBACK, font_size=13, color=Paper.accent,
         )
         emit_grp = VGroup(emit_call, emit_call2).arrange(
-            DOWN, aligned_edge=LEFT, buff=0.08,
+            DOWN, aligned_edge=LEFT, buff=0.06,
         )
-        emit_grp.move_to(np.array([0, 2.0, 0]))
+        emit_grp.next_to(prob, DOWN, buff=0.30, aligned_edge=LEFT)
         self.play(FadeIn(emit_grp, shift=UP * 0.08, run_time=0.45))
-        self.wait(0.6)
+        # Selector hot: the model just took the make_new_program branch.
+        set_selector(active_idx=1, run_time=0.30)
+        self.wait(0.4)
 
-        switch_label = Text(
-            "[grammar switch → PROGRAM_SOURCE_GRAMMAR]",
-            font=theme.MONO_FALLBACK, font_size=12, color=Paper.ink_soft,
-        )
-        switch_label.next_to(emit_grp, DOWN, buff=0.18)
-        self.play(FadeIn(switch_label, run_time=0.35))
-        self.wait(0.5)
-
-        # Source materialises — syntax-highlighted to match the rest.
-        anchor_src = np.array([-3.4, 0.7, 0])
+        # The grammar selector at the top makes the grammar switch
+        # visible; no in-line label needed. Source anchors directly
+        # under the meta-call so the generation history stays a single
+        # column.
+        anchor_src = np.array([
+            LEFT_X,
+            emit_grp.get_bottom()[1] - 0.40,
+            0,
+        ])
         ACC = Paper.accent
         KW  = Paper.accent_soft
         FN  = Terminal.amber
@@ -1745,80 +1857,389 @@ class FullVideoV2(Scene):
         DIM = Paper.ink_soft
         NUM = Terminal.blue
         STR = Paper.good
+        PRED = Paper.good
         source_rich = [
             [("@program", ACC)],
-            [("def ", KW), ("quadratic_solver", FN), ("():", DIM)],
-            [("    a     = ", ID), ("yield ", KW),
+            [("def ", KW), ("_factor_1147", FN), ("():", DIM)],
+            [("    n = ", ID), ("yield ", KW),
              ("gen.integer", FN), ("(", DIM),
-             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
-            [("    b     = ", ID), ("yield ", KW),
+             ("1147", NUM), (", ", DIM), ("1147", NUM), (")", DIM)],
+            [("    p = ", ID), ("yield ", KW),
              ("gen.integer", FN), ("(", DIM),
-             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
-            [("    c     = ", ID), ("yield ", KW),
+             ("2", NUM), (", ", DIM), ("1146", NUM), (", ", DIM),
+             ("where=", KW), ("divides", PRED), ("(", DIM),
+             ("n", FN), (")", DIM), (")", DIM)],
+            [("    q = ", ID), ("yield ", KW),
              ("gen.integer", FN), ("(", DIM),
-             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
-            [("    root1 = ", ID), ("yield ", KW),
-             ("gen.integer", FN), ("(", DIM),
-             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
-            [("    root2 = ", ID), ("yield ", KW),
-             ("gen.integer", FN), ("(", DIM),
-             ("-9", NUM), (", ", DIM), ("9", NUM), (")", DIM)],
+             ("2", NUM), (", ", DIM), ("1146", NUM), (", ", DIM),
+             ("where=", KW), ("multiplies_to", PRED), ("(", DIM),
+             ("n", FN), (", ", DIM), ("p", FN), (")", DIM), (")", DIM)],
             [("    return ", KW),
-             ("{", DIM), ("'a'", STR), (": a, ", ID),
-             ("'b'", STR), (": b, ", ID), ("'c'", STR), (": c,", ID)],
-            [("            ", ID),
-             ("'roots'", STR), (": [root1, root2]", ID), ("}", DIM)],
+             ("{", DIM), ("'p'", STR), (": p, ", ID),
+             ("'q'", STR), (": q", ID), ("}", DIM)],
         ]
         source = _rich_block(source_rich, anchor=anchor_src,
-                             line_height=0.30, font_size=13)
+                             line_height=0.32, font_size=13)
+
+        # Phase 1a: lines 0..2 fade in line-by-line (header + first yield).
         self.play(LaggedStart(
-            *[FadeIn(ln, shift=LEFT * 0.08) for ln in source],
-            lag_ratio=0.14, run_time=2.8,
+            *[FadeIn(source[i], shift=LEFT * 0.08) for i in range(3)],
+            lag_ratio=0.18, run_time=1.6,
         ))
-        self.wait(2.0)
 
-        # Compile callout — to the right of the source.
-        compile_note = Text("[validated · compiled · registered]",
-                            font=theme.MONO_FALLBACK, font_size=13,
-                            color=Paper.good)
-        compile_note.next_to(source, RIGHT, buff=0.6)
-        compile_note.align_to(source, UP)
-        self.play(FadeIn(compile_note, shift=LEFT * 0.06, run_time=0.4))
-        self.wait(0.9)
+        # Phase 1b: line 3 prefix — token-by-token until just after
+        # `divides(`. The model has typed
+        #   `    p = yield gen.integer(2, 1146, where=divides(`
+        # at this point, with the cursor sitting at the predicate's arg
+        # slot. We pause here for the mask flash before the line
+        # finishes. Token indices match the source_rich line-3 list:
+        #   0..10 = `    p = ` … `divides(`
+        #   11..13 = `n` `)` `)`
+        LINE3_PREFIX_COUNT = 11
+        self.play(LaggedStart(
+            *[FadeIn(source[3][i]) for i in range(LINE3_PREFIX_COUNT)],
+            lag_ratio=0.05, run_time=0.45,
+        ))
 
-        # The model uses what it just authored — also right of source.
-        usage = Text(
-            "@quadratic_solver(1, -5, 6, 2, 3)",
-            font=theme.MONO_FALLBACK, font_size=14, color=Paper.accent,
-        )
-        usage.next_to(compile_note, DOWN, buff=0.5, aligned_edge=LEFT)
-        self.play(FadeIn(usage, shift=UP * 0.08, run_time=0.4))
+        # === MASK FLASH ============================================
+        # The cursor is at the where= arg slot. Show a 7-row logit
+        # column to the right of the source. Six masked candidates get
+        # clay-red strikes + opacity drop; the survivor `n` glows
+        # accent. The grammar rule that does the masking is
+        # `var-name ::= [a-z]` (see src/orate/meta.py); the validator
+        # additionally enforces "name must be bound." Caption conflates
+        # both for clarity.
+        mask_data = [
+            ("number", "−2.1", False),
+            ("value",  "−2.4", False),
+            ("int",    "−3.0", False),
+            ("the",    "−3.1", False),
+            ("target", "−3.5", False),
+            ("1147",   "−4.0", False),
+            ("n",      "−1.4", True),
+        ]
+        mask_rows = []
+        rows_vg = VGroup()
+        for tok, logit, kept in mask_data:
+            tok_t = Text(tok, font=theme.MONO_FALLBACK, font_size=13,
+                         color=(Paper.accent if kept else Paper.ink))
+            logit_t = Text(logit, font=theme.MONO_FALLBACK, font_size=11,
+                           color=Paper.ink_soft)
+            row = VGroup(tok_t, logit_t).arrange(
+                RIGHT, buff=0.5, aligned_edge=DOWN,
+            )
+            rows_vg.add(row)
+            mask_rows.append((row, tok_t, logit_t, kept))
+        rows_vg.arrange(DOWN, aligned_edge=LEFT, buff=0.08)
+        rows_vg.next_to(source, RIGHT, buff=0.9)
+        rows_vg.align_to(source, UP)
 
-        done_t = Text("@done(\"x = 2 or x = 3\")  ✓",
-                      font=theme.MONO_FALLBACK, font_size=14,
-                      color=Paper.good)
-        done_t.next_to(usage, DOWN, buff=0.16, aligned_edge=LEFT)
-        self.play(FadeIn(done_t, shift=UP * 0.05, run_time=0.45))
-        self.wait(3.4)
-
-        # Capability footnote. Predicate-bound bodies (via `where=`) are
-        # shipped as of commit 6473880 — PROGRAM_SOURCE_GRAMMAR admits
-        # `where=<lib_predicate>(<bound_args>)` clauses, and the host
-        # library at src/orate/meta_predicates.py exposes is_prime,
-        # digit_sum_eq, lt, gt, equivalent_under, factors_to (13 unit
-        # tests green). The earlier "on the roadmap" caveat is obsolete.
-        footnote = Text(
-            "shipped: predicate-bound bodies via where=",
+        mask_caption = Text(
+            "grammar enforces only previously\ndeclared variables at this token",
             font="Georgia", slant="ITALIC", font_size=12,
-            color=Paper.mute,
+            color=Paper.ink_soft,
         )
-        footnote.to_edge(DOWN, buff=0.35)
-        self.play(FadeIn(footnote, run_time=0.45))
-        self.wait(3.0)
+        mask_caption.next_to(rows_vg, UP, buff=0.22, aligned_edge=LEFT)
 
-        # Clean for thesis card.
-        self.play(FadeOut(VGroup(prob, emit_grp, switch_label, source,
-                                  compile_note, usage, done_t, footnote),
+        all_mask = VGroup(mask_caption, rows_vg)
+        self.play(FadeIn(all_mask, shift=LEFT * 0.10, run_time=0.45))
+
+        # Apply strikes + opacity drop on masked rows; pulse the survivor.
+        strike_anims = []
+        for row, tok_t, logit_t, kept in mask_rows:
+            if kept:
+                continue
+            strike = Line(
+                tok_t.get_left() + np.array([-0.05, 0, 0]),
+                logit_t.get_right() + np.array([0.05, 0, 0]),
+                stroke_color=Paper.bad, stroke_width=2.0,
+            )
+            row.add(strike)
+            strike_anims.append(FadeIn(strike, run_time=0.5))
+            strike_anims.append(tok_t.animate.set_opacity(0.35))
+            strike_anims.append(logit_t.animate.set_opacity(0.35))
+        for row, tok_t, logit_t, kept in mask_rows:
+            if not kept:
+                continue
+            strike_anims.append(
+                tok_t.animate.scale(1.18).set_color(Paper.accent),
+            )
+        self.play(*strike_anims, run_time=0.6)
+        self.wait(1.5)
+        self.play(FadeOut(all_mask, run_time=0.35))
+        # === /MASK FLASH ===========================================
+
+        # Phase 2a: line 3 finishes — the surviving `n)` snaps in,
+        # plus the closing paren. Token indices 11..13.
+        self.play(LaggedStart(
+            *[FadeIn(source[3][i])
+              for i in range(LINE3_PREFIX_COUNT, len(source[3]))],
+            lag_ratio=0.10, run_time=0.4,
+        ))
+
+        # Phase 2b: lines 4..5 (q-yield + return) come in line-by-line.
+        self.play(LaggedStart(
+            *[FadeIn(source[i], shift=LEFT * 0.08) for i in range(4, 6)],
+            lag_ratio=0.18, run_time=1.2,
+        ))
+        self.wait(0.4)
+
+        # Compile callout — RIGHT column, level with the top of source.
+        # Three pieces appearing in succession: validated → compiled →
+        # registered. Each piece is "<verb> ✓" with the ✓ in green. The
+        # *registered* piece appears in sync with the selector growing
+        # to include @_factor_1147; the new tab green-flashes at that
+        # exact moment to make the registry growth pop.
+        val_piece = _rich_line(
+            [("validated ", Paper.good), ("✓", Paper.good)],
+            font_size=13,
+        )
+        cmp_piece = _rich_line(
+            [("compiled ", Paper.good), ("✓", Paper.good)],
+            font_size=13,
+        )
+        reg_piece = _rich_line(
+            [("registered ", Paper.good), ("✓", Paper.good)],
+            font_size=13,
+        )
+        note_row = VGroup(val_piece, cmp_piece, reg_piece).arrange(
+            RIGHT, buff=0.45, aligned_edge=DOWN,
+        )
+        # Anchor near the END of the make_program generation — right
+        # column, level with the last line of the authored source. Reads
+        # as: "the source just finished; here's what the runtime did to
+        # it" rather than a separate floating banner at the top.
+        note_row.move_to(np.array([1.7, source.get_bottom()[1] + 0.10, 0]),
+                         aligned_edge=LEFT)
+        # Stage compiled and registered invisible; reveal in succession.
+        cmp_piece.set_opacity(0)
+        reg_piece.set_opacity(0)
+
+        self.play(FadeIn(val_piece, shift=LEFT * 0.06, run_time=0.25))
+        self.wait(0.10)
+        self.play(cmp_piece.animate.set_opacity(1.0), run_time=0.25)
+        self.wait(0.10)
+
+        # Selector grows + reg_piece appears + green flash, all in sync.
+        new_bar = _selector(
+            ["done", "make_new_program", "_factor_1147"], active_idx=1,
+        )
+        new_bar.move_to(np.array([0.0, SEL_Y, 0]))
+        new_bar.align_to(np.array([-2.7, 0, 0]), LEFT)
+        old_bar = sel_state["current"]
+        self.play(
+            FadeOut(old_bar, run_time=0.20),
+            FadeIn(new_bar, run_time=0.30),
+            reg_piece.animate.set_opacity(1.0),
+        )
+        sel_state["current"] = new_bar
+        sel_state["names"] = ["done", "make_new_program", "_factor_1147"]
+        sel_state["active"] = 1
+        # Green flash on the just-registered tab — same colour as the ✓.
+        # Children layout for 3 names: [, done, |, make_new_program, |, _factor_1147, ]
+        # → the new tab is at index 5.
+        self.play(Indicate(new_bar[5], color=Paper.good, scale_factor=1.18),
+                  run_time=0.6)
+        self.wait(0.3)
+        # Bind compile_note for the cleanup fadeout below.
+        compile_note = note_row
+
+        # ====================================================================
+        # BEAT 5.B — solving the query by it
+        # ====================================================================
+        # Brief pause; demote the meta-call history (it's done its job),
+        # fade out the validated/compiled/registered notes (they belong
+        # to Beat 5.A; the right column is about to host the rapid mask
+        # cycle and predicate flash), then flip the selector to the
+        # freshly-registered tab. The model is about to sample under
+        # @_factor_1147's body grammar.
+        self.play(
+            emit_grp.animate.set_opacity(0.30),
+            FadeOut(note_row, run_time=0.35),
+            run_time=0.35,
+        )
+        set_selector(active_idx=2, run_time=0.30)
+        self.wait(0.3)
+
+        # The usage line lives on the LEFT (continues the model
+        # generation stack). Built as a row of pieces so each token
+        # picked by the rapid mask cycle on the right can fade into
+        # position simultaneously. The stub `@_factor_1147(` appears
+        # immediately; arg pieces fade in synced with their cycles.
+        usage_part_specs = [
+            ("@_factor_1147(", "stub"),
+            ("1147",            "arg"),
+            (", ",              "sep"),
+            ("31",               "arg"),
+            (", ",              "sep"),
+            ("37",               "arg"),
+            (")",                "post"),
+        ]
+        usage_parts = [
+            Text(text, font=theme.MONO_FALLBACK, font_size=13,
+                 color=Paper.accent)
+            for text, _ in usage_part_specs
+        ]
+        usage = VGroup(*usage_parts).arrange(RIGHT, buff=0.0,
+                                              aligned_edge=DOWN)
+        usage.next_to(source, DOWN, buff=0.30, aligned_edge=LEFT)
+        # Stage everything-but-stub invisible; cycles will reveal them.
+        for p in usage_parts[1:]:
+            p.set_opacity(0)
+        self.play(FadeIn(usage_parts[0], shift=UP * 0.08, run_time=0.30))
+
+        # === RAPID MASK CYCLE =====================================
+        # Per-token grammar masking, fast enough to be more rhythm than
+        # legible. The underlying mechanism: each emitted arg position
+        # has its own grammar mask (forced int range, comma-separator,
+        # close-paren) plus a where= predicate run at verification time.
+        # Visual takeaway: many candidates get struck, one survives, the
+        # corresponding token *simultaneously* lands in the usage line on
+        # the left — making the link between mask resolution and
+        # generation step explicit.
+        cycle_caption = Text(
+            "@_factor_1147(...) — sampled under the body grammar",
+            font="Georgia", slant="ITALIC", font_size=11,
+            color=Paper.ink_soft,
+        )
+        cycle_anchor = np.array([1.7,
+                                  usage.get_center()[1] + 0.1, 0])
+        cycle_caption.move_to(cycle_anchor + np.array([0, 0.65, 0]),
+                               aligned_edge=LEFT)
+        self.play(FadeIn(cycle_caption, run_time=0.30))
+
+        # Five cycles, one per arg-token in `(1147, 31, 37)`. Each cycle
+        # is paired with the usage-line piece that should appear when
+        # that token "wins" — the kept survivor in the cycle and the
+        # piece on the left fade in together with the strike anim. One
+        # cycle (the `31` slot) carries an explanation caption: this is
+        # the moment the where=divides(1147) predicate gates the sample,
+        # mirroring the source-authoring mask-flash beat.
+        cycle_specs = [
+            # (kept, masked, left_piece, explanation)
+            ("1147", ["int", "the", "n", "p"],    usage_parts[1], None),
+            (", ",   [".",   ":",   "0", "1"],    usage_parts[2], None),
+            ("31",   ["7",   "11",  "13", "32"],  usage_parts[3],
+             "grammar enforces only divisors\nof 1147 at this token"),
+            (", ",   [";",   ":",   ".", " "],    usage_parts[4], None),
+            ("37",   ["1147", "5",  "23", "41"],  usage_parts[5], None),
+        ]
+        for kept, masked, left_piece, explanation in cycle_specs:
+            items = []
+            rows_vg = VGroup()
+            for tok in masked:
+                t = Text(tok, font=theme.MONO_FALLBACK, font_size=12,
+                         color=Paper.ink)
+                rows_vg.add(t)
+                items.append((t, False))
+            surv = Text(kept, font=theme.MONO_FALLBACK, font_size=12,
+                         color=Paper.accent, weight="BOLD")
+            rows_vg.add(surv)
+            items.append((surv, True))
+            rows_vg.arrange(DOWN, aligned_edge=LEFT, buff=0.07)
+            rows_vg.move_to(cycle_anchor, aligned_edge=LEFT)
+
+            self.play(FadeIn(rows_vg, run_time=0.12))
+            strikes = VGroup()
+            strike_anims = []
+            for tok_t, kept_flag in items:
+                if kept_flag:
+                    continue
+                s = Line(
+                    tok_t.get_left() + np.array([-0.05, 0, 0]),
+                    tok_t.get_right() + np.array([0.05, 0, 0]),
+                    stroke_color=Paper.bad, stroke_width=1.8,
+                )
+                strikes.add(s)
+                strike_anims.append(FadeIn(s, run_time=0.13))
+                strike_anims.append(tok_t.animate.set_opacity(0.4))
+            rows_vg.add(strikes)
+            # The kept-token survives on the right at the same instant
+            # as the corresponding piece appears on the left.
+            strike_anims.append(left_piece.animate.set_opacity(1.0))
+            self.play(*strike_anims, run_time=0.16)
+
+            if explanation:
+                # Educational pause: hold the panel + show explanation.
+                ex_caption = Text(
+                    explanation, font="Georgia", slant="ITALIC",
+                    font_size=12, color=Paper.ink_soft,
+                )
+                ex_caption.next_to(rows_vg, DOWN, buff=0.20,
+                                    aligned_edge=LEFT)
+                self.play(FadeIn(ex_caption, shift=UP * 0.05,
+                                  run_time=0.30))
+                self.wait(1.8)
+                self.play(FadeOut(ex_caption, run_time=0.25))
+            else:
+                self.wait(0.04)
+            self.play(FadeOut(rows_vg, run_time=0.10))
+
+        self.play(FadeOut(cycle_caption, run_time=0.20))
+        # === /RAPID MASK CYCLE ====================================
+
+        # Closing `)` lands on the left after the cycle ends.
+        self.play(usage_parts[6].animate.set_opacity(1.0), run_time=0.20)
+
+        result = Text(
+            "  → {'p': 31, 'q': 37}",
+            font=theme.MONO_FALLBACK, font_size=12, color=Paper.ink,
+        )
+        result.next_to(usage, DOWN, buff=0.10, aligned_edge=LEFT)
+        self.play(FadeIn(result, run_time=0.35))
+        self.wait(0.3)
+
+        # === PREDICATE FLASH ======================================
+        # The contract-honoring moment. Voiceover lands here:
+        # "The model wrote down a contract — then was forced to honor it."
+        # See docs/video_script.md Beat 3 for cue timing.
+        # Lives in the RIGHT column, level with the usage/result on the
+        # left — visually pairs "the result that just landed" with "the
+        # math that the runtime ran on every candidate emission."
+        pf_line1 = _rich_line(
+            [("divides(1147)(31)", PRED),
+             ("         → ", DIM),
+             ("1147 % 31 == 0", ID),
+             ("   ", DIM),
+             ("✓", Paper.good)],
+            font_size=12,
+        )
+        pf_line2 = _rich_line(
+            [("multiplies_to(1147, 31)(37)", PRED),
+             (" → ", DIM),
+             ("37 × 31 == 1147", ID),
+             ("  ", DIM),
+             ("✓", Paper.good)],
+            font_size=12,
+        )
+        pf_anchor_y = (usage.get_center()[1] + result.get_center()[1]) / 2
+        pf_line1.move_to(np.array([1.7, pf_anchor_y + 0.18, 0]),
+                         aligned_edge=LEFT)
+        pf_line2.next_to(pf_line1, DOWN, buff=0.16, aligned_edge=LEFT)
+        self.play(LaggedStart(
+            FadeIn(pf_line1, shift=UP * 0.05),
+            FadeIn(pf_line2, shift=UP * 0.05),
+            lag_ratio=0.55, run_time=1.4,
+        ))
+        self.wait(2.5)  # voiceover holds here
+        # === /PREDICATE FLASH =====================================
+
+        # Selector closes the chain: model picks @done.
+        set_selector(active_idx=0, run_time=0.30)
+        # Done line stays in the LEFT column (continues the model
+        # generation stack), not under the predicate flash.
+        done_t = Text("@done(\"31 and 37\")",
+                      font=theme.MONO_FALLBACK, font_size=13,
+                      color=Paper.mute)
+        done_t.next_to(result, DOWN, buff=0.20, aligned_edge=LEFT)
+        self.play(FadeIn(done_t, shift=UP * 0.05, run_time=0.4))
+        self.wait(1.0)
+
+        # Clean for thesis card. Pull the selector + label too.
+        self.play(FadeOut(VGroup(prob, emit_grp, source,
+                                  compile_note, usage, result,
+                                  pf_line1, pf_line2, done_t,
+                                  sel_state["current"], sel_label),
                           run_time=0.45))
 
         # Beat 5.C — thesis card. Letter-tracked headline; mute setup
