@@ -3,6 +3,10 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import date as _date
+from datetime import datetime as _datetime
+from datetime import time as _time
+from datetime import timedelta as _timedelta
 from typing import Any
 
 from orate.engine.protocol import Engine
@@ -272,6 +276,89 @@ def _coerce_to_field_type(pick: str, spec: Gen) -> Any:
 
 
 @dataclass
+class DateTime(Gen):
+    """Pick a ``datetime.datetime`` from a bounded grid.
+
+    Conceptually the same shape as :class:`Int`: the domain is the set
+    of timestamps in ``[min_dt, max_dt]`` snapped to a regular grid
+    (``granularity_minutes``). The accept set is enumerated upfront and
+    the engine samples via :func:`Engine.sample_choice` over ISO-8601
+    strings; the dispatch parses the chosen string back into a Python
+    ``datetime``.
+
+    Cross-field predicates work the same way as for ``Int``: a
+    ``where=`` lambda closes over earlier-yielded values and the
+    accept set is filtered before the engine sees it. This is the
+    primitive that powers the *"end is exactly two hours after start"*
+    cross-field example: enumerate hourly slots, drop the ones that
+    fail ``e - start == timedelta(hours=duration_h)``, sample.
+
+    The grid is bounded for two reasons: (1) we need a finite accept
+    set to enumerate, and (2) for any realistic scheduling task the
+    range is hours-to-weeks, not the full Unix epoch. If you need
+    fine-grained sampling (minutes), pass ``granularity_minutes=1``;
+    seconds-precision sampling is supported but enumeration starts to
+    bite past ~10k slots — same budget as ``Int``.
+    """
+
+    min_dt: _datetime | None = None
+    max_dt: _datetime | None = None
+    granularity_minutes: int = 60
+    where: Callable[[_datetime], bool] | None = None
+    description: str | None = None
+    reject_message: Callable[[Any], str] | str | None = None
+    max_retries: int = 16
+
+    def _resolve_bounds(self) -> tuple[_datetime, _datetime]:
+        """Default range: today, 00:00 → 23:00 inclusive."""
+        if self.min_dt is not None and self.max_dt is not None:
+            return self.min_dt, self.max_dt
+        today = _datetime.combine(_date.today(), _time(0, 0))
+        return (
+            self.min_dt if self.min_dt is not None else today,
+            self.max_dt if self.max_dt is not None else today + _timedelta(hours=23),
+        )
+
+    def _enumerate_slots(self, max_slots: int = 10_000) -> list[_datetime] | None:
+        """Walk the [min, max] grid; return None if it would exceed max_slots."""
+        lo, hi = self._resolve_bounds()
+        if self.granularity_minutes <= 0:
+            raise ValueError(
+                f"gen.datetime: granularity_minutes must be positive, got "
+                f"{self.granularity_minutes}"
+            )
+        if lo > hi:
+            raise ValueError(f"gen.datetime: min_dt={lo!r} > max_dt={hi!r}")
+        step = _timedelta(minutes=self.granularity_minutes)
+        # Cheap span estimate before walking — bail if it would blow the budget.
+        approx = int((hi - lo).total_seconds() // (self.granularity_minutes * 60)) + 1
+        if approx > max_slots:
+            return None
+        slots: list[_datetime] = []
+        cur = lo
+        while cur <= hi:
+            slots.append(cur)
+            cur += step
+        return slots
+
+    def dispatch(self, engine: Engine) -> _datetime:
+        slots = self._enumerate_slots()
+        if slots is None:
+            raise GrammarExhausted(
+                "gen.datetime: range too large to enumerate; tighten min_dt/max_dt "
+                "or increase granularity_minutes"
+            )
+        if self.where is not None:
+            slots = [s for s in slots if _safe_predicate(self.where, s)]
+        if not slots:
+            raise GrammarExhausted("gen.datetime: no slot satisfies predicate")
+        if len(slots) == 1:
+            return slots[0]
+        pick_str = engine.sample_choice([s.isoformat() for s in slots])
+        return _datetime.fromisoformat(pick_str)
+
+
+@dataclass
 class ToolCall(Gen):
     """Tool call as a yield: unifies structured-output / tool-use / agent APIs.
 
@@ -463,6 +550,15 @@ def _check_value_against_spec(spec: Gen, value: Any, idx: int) -> str | None:
         if spec.where is not None and not _safe_predicate(spec.where, value):
             return f"yield #{idx}: string {value!r} failed where= predicate"
         return None
+    if isinstance(spec, DateTime):
+        if not isinstance(value, _datetime):
+            return f"yield #{idx}: expected datetime, got {type(value).__name__}"
+        lo, hi = spec._resolve_bounds()
+        if value < lo or value > hi:
+            return f"yield #{idx}: {value.isoformat()} outside [{lo.isoformat()}, {hi.isoformat()}]"
+        if spec.where is not None and not _safe_predicate(spec.where, value):
+            return f"yield #{idx}: datetime {value.isoformat()} failed where= predicate"
+        return None
     return None  # ToolCall and unknown subclasses pass through
 
 
@@ -573,6 +669,43 @@ def struct(
     """
     return Struct(
         fields=fields,
+        where=where,
+        description=description,
+        reject_message=reject_message,
+        max_retries=max_retries,
+    )
+
+
+def datetime(
+    *,
+    min_dt: _datetime | None = None,
+    max_dt: _datetime | None = None,
+    granularity_minutes: int = 60,
+    where: Callable[[_datetime], bool] | None = None,
+    description: str | None = None,
+    reject_message: Callable[[Any], str] | str | None = None,
+    max_retries: int = 16,
+) -> DateTime:
+    """Pick a ``datetime.datetime`` from a bounded, gridded range.
+
+    Defaults to today's hourly slots (00:00..23:00). Pass ``min_dt`` /
+    ``max_dt`` to scope; ``granularity_minutes`` controls the grid step.
+
+    Cross-field constraints close over earlier yields just like
+    :func:`integer`::
+
+        @program
+        def book_meeting(duration_h: int):
+            start = yield gen.datetime(where=in_business_hours)
+            end = yield gen.datetime(
+                where=lambda e: e - start == timedelta(hours=duration_h)
+            )
+            return {"start": start, "end": end}
+    """
+    return DateTime(
+        min_dt=min_dt,
+        max_dt=max_dt,
+        granularity_minutes=granularity_minutes,
         where=where,
         description=description,
         reject_message=reject_message,
