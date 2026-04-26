@@ -157,12 +157,33 @@ before the next yield is allowed:
 ```
 
 Most recent run: [`bench/results/legal_steps_2026-04-26_1759.md`](bench/results/legal_steps_2026-04-26_1759.md).
-Same pattern works for propositional logic — see
+
+The same pattern extends to **propositional logic** — see
 [`examples/legal_steps/logic.py`](examples/legal_steps/logic.py)
 (`@inference_step` with a `derivable_under` predicate covering modus
 ponens, modus tollens, hypothetical syllogism, conjunction,
 simplification) and the
 [`act4_logic_demo.py`](examples/legal_steps/act4_logic_demo.py) runner.
+
+**BBH `logical_deduction` benchmark** (Qwen2.5-7B, 50-problem subsamples):
+
+| subtask | baseline (free-text) | orate (`@premise` / `@deduce` / `@answer`) |
+|---|---|---|
+| three_objects | 88% | **94%** |
+| five_objects  | 60% | **84%** |
+| seven_objects | 42% | **78%** |
+
+Source files: [`bench/results/bbh_orate_logical_deduction_*_2026-04-25_baseline.json`](bench/results/) and `_2026-04-26_morning.json` for seven-objects. Harness: [`bench/bbh/run_orate.py`](bench/bbh/run_orate.py).
+
+> ⚠️ **Disclaimer.** These logic numbers were captured before the kernel
+> changes in `f6046ac` (Session-level temperature escalation on
+> consecutive predicate rejections). A rerun on the post-`f6046ac`
+> kernel was started during the submission window but didn't complete
+> in time — early results suggest the T-escalation occasionally lets the
+> model meander past the call budget on harder problems without
+> committing to `@answer`. The numbers above are what we measured; the
+> current kernel will likely produce different (and at least
+> partially worse) numbers until the escalation policy is tuned.
 
 ---
 
