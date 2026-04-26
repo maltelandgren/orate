@@ -3,6 +3,8 @@
 **Programmatic grammar decoding for local LLM inference.**
 
 > 🎬 **Watch the 3-min submission video:** [`video/orate_submission.mp4`](video/orate_submission.mp4)
+>
+> 📖 **Read the in-depth writeup:** [`docs/project_overview.md`](docs/project_overview.md)
 
 > Structured output constrained the shape.
 > Tool calling constrained the side effect.
@@ -364,6 +366,13 @@ video/
   engine — same KV, same grammar machinery, no separate APIs.
 
 ---
+
+## More
+
+For the architectural deep-dive — three layers of correctness, the
+two-tier `@program` split, transition-based composition, the JIT
+grammar segmentation roadmap, and the long-form benchmark commentary
+— see [`docs/project_overview.md`](docs/project_overview.md).
 
 ## License
 
