@@ -16,7 +16,6 @@ the logit level.
 
 > Pre-alpha. Built for *Built with Opus 4.7: a Claude Code hackathon*
 > (Apr 21–26, 2026). Problem statement **#2 — Build For What's Next**.
-> Submission video: [`video/renders/videos/full_video_v2/1080p60/FullVideoV2.mp4`](video/renders/videos/full_video_v2/1080p60/FullVideoV2.mp4).
 
 ---
 
