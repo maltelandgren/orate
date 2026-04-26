@@ -2,6 +2,8 @@
 
 **Programmatic grammar decoding for local LLM inference.**
 
+> 🎬 **Watch the 3-min submission video:** [`video/orate_submission.mp4`](video/orate_submission.mp4)
+
 > Structured output constrained the shape.
 > Tool calling constrained the side effect.
 > **orate lets the model enforce the legality of its own thought.**
@@ -367,3 +369,7 @@ video/
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Credits
+
+Submission video music: **"On The Eve"** by *The Grey Room / Density & Time*, from the [YouTube Audio Library](https://www.youtube.com/audiolibrary).
