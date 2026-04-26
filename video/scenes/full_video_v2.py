@@ -2008,7 +2008,7 @@ class FullVideoV2(Scene):
         bonus = VGroup(bonus_l1, bonus_l2).arrange(DOWN, buff=0.08)
         bonus.next_to(ours, DOWN, buff=0.4)
         self.play(FadeIn(bonus, shift=UP * 0.06, run_time=0.5))
-        self.wait(2.8)
+        self.wait(4.8)
 
         # Clean.
         self.play(FadeOut(VGroup(
